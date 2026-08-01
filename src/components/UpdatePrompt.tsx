@@ -31,6 +31,12 @@ const UPDATE_POLL_MS = 60 * 60 * 1000;
 
 const OFFLINE_NOTICE_MS = 3200;
 
+/**
+ * Grace period before forcing the reload ourselves, long enough for the waiting worker
+ * to take over so the reload lands on the new build rather than re-serving the old one.
+ */
+const RELOAD_FALLBACK_MS = 1200;
+
 export function UpdatePrompt(): JSX.Element | null {
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -92,9 +98,15 @@ export function UpdatePrompt(): JSX.Element | null {
             disabled={updating}
             onClick={() => {
               setUpdating(true);
-              // Tells the waiting worker to take over, then reloads. Everything the new
-              // build needs is already precached, so this is effectively instant.
+              // Tells the waiting worker to take over. Everything the new build needs is
+              // already precached, so the reload that follows is effectively instant.
               void updateServiceWorker(true);
+              /* And reload ourselves regardless. The library's reload fires on
+                 `controllerchange`, which never happens when the page was opened before
+                 any worker existed — without clientsClaim nothing claims it, so on a
+                 first-ever session the button would activate the update and then appear
+                 to do nothing. Whichever path wins, the page reloads exactly once. */
+              window.setTimeout(() => window.location.reload(), RELOAD_FALLBACK_MS);
             }}
             className="ease-swift inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gold px-3 py-1.5 text-sm font-medium text-space transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
           >
