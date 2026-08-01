@@ -107,6 +107,20 @@ Each of these silently corrupts the game if ignored, and none is visible without
 
 `npm run data` prints a centroid spot-check table and fails the build on any duplicate name, duplicate capital, or out-of-range coordinate.
 
+### Drawn geometry is simplified; game maths is not
+
+At full 50m resolution the map is ~101,000 vertices across 244 SVG paths, every one re-rasterised on each frame of a pan or pinch — which is what made it feel heavy on a phone. The rendered topology is simplified to 38% of its points (41,000 vertices, and the file drops from 739 KB to 360 KB).
+
+The ordering is what makes that safe: simplification runs **after** every centroid, area and micro-state decision has been taken from the full-resolution geometry, so nothing the game reasons about is derived from the simplified copy. The build fails if simplification destroys any playable country's ring, and the 39 smallest stay clickable through markers regardless.
+
+One trap worth recording: the naive simplified output is *larger* than its input, because `presimplify` hangs a weight on every coordinate and `simplify` returns absolute floats. Re-quantising afterwards is what turns a 1.3 MB file back into 360 KB.
+
+## Updates
+
+The service worker uses `prompt` registration, not `autoUpdate`. Under `autoUpdate` the new worker calls `skipWaiting` and takes over mid-session, and Workbox then evicts precache entries missing from the new manifest — which would delete the lazily-loaded globe chunk out from under a round in progress. Waiting instead leaves the old precache intact for the whole session, and the player chooses when to reload.
+
+A new build therefore surfaces as a small "A new version is ready" prompt rather than appearing silently. The app also re-checks hourly and on tab focus, since the browser otherwise only checks on navigation — which for an installed PWA can mean days.
+
 ## Storage
 
 Local only — Dexie/IndexedDB, no accounts, no cloud sync, matching the PRD's zero-recurring-cost constraint. Streaks are per-mode and reset at **local** midnight. Where storage is unavailable (private browsing, blocked storage), the game degrades to in-memory state and stays fully playable.
