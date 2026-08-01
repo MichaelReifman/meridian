@@ -19,16 +19,20 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
-# Action versions are pinned to the first major of each that runs on Node 24. The
-# runner force-runs Node 20 actions on 24 and warns; these no longer trigger that.
-# Note configure-pages needed v6 rather than v5 — v5 was itself a Node 20 build.
+# Every action is on its current major, and all of them are Node 24 builds — the
+# runner force-runs Node 20 actions on 24 and warns, which none of these trigger.
+# The majors do not line up: configure-pages had to reach v6 because its v5 was
+# itself a Node 20 build, and upload-pages-artifact is composite, so its Node 20
+# warning came from the actions/upload-artifact it wraps rather than from itself.
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      # setup-node v6 narrowed automatic caching to npm only, which is what we ask
+      # for here, so the cache keeps working across the bump.
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -58,8 +62,6 @@ jobs:
 
       - uses: actions/configure-pages@v6
 
-      # Composite at every version, so the Node 20 warning it produced came from the
-      # actions/upload-artifact it wraps; v5 is the first to wrap a Node 24 build.
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
