@@ -1,7 +1,8 @@
 /**
  * Guess count — the score, since fewer guesses is better (PRD §2).
  *
- * Top-right corner, deliberately the smallest thing on screen.
+ * Top-right corner, deliberately the smallest thing on screen: a single instrument
+ * readout, the figure over a rule with its unit engraved beneath.
  */
 
 export function GuessCounter({ count }: { count: number }) {
@@ -13,19 +14,19 @@ export function GuessCounter({ count }: { count: number }) {
         right: 'calc(var(--inset-r) + 0.75rem)',
       }}
     >
-      <div className="hud-panel min-w-[3.5rem] rounded-xl px-3 py-2 text-right">
+      <div className="sheet min-w-[3.5rem] px-3 py-2 text-center">
         {/* The visual split of number and label reads as one phrase to a screen reader
             only if we say it once, plainly, and hide the decorative halves. */}
         <span className="sr-only">
           {count} {count === 1 ? 'guess' : 'guesses'} so far
         </span>
-        <span
-          aria-hidden="true"
-          className="block font-mono tabular text-xl leading-none text-parchment"
-        >
+        <span aria-hidden="true" className="block font-mono tabular text-2xl leading-none text-ink">
           {count}
         </span>
-        <span aria-hidden="true" className="text-hud mt-1 block uppercase text-muted">
+        <span
+          aria-hidden="true"
+          className="label mt-1.5 block border-t border-rule-soft pt-1.5"
+        >
           {count === 1 ? 'Guess' : 'Guesses'}
         </span>
       </div>

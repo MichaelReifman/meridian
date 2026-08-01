@@ -54,8 +54,8 @@ export default defineConfig({
         short_name: 'Meridian',
         description:
           'Click a country to guess a target — country, capital, or flag — and get pulled closer with every wrong guess.',
-        theme_color: '#0B0E1A',
-        background_color: '#0B0E1A',
+        theme_color: '#F2EDE1',
+        background_color: '#F2EDE1',
         display: 'standalone',
         orientation: 'any',
         // Must match the deployment base, or Android installs the app and then opens

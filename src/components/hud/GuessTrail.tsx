@@ -1,5 +1,6 @@
 /**
- * The record of guesses so far, bottom-left.
+ * The record of guesses so far, bottom-left. A ruled tally: one hairline per entry, the
+ * name in ink, the measurements set in tabular figures so the columns hold.
  *
  * Percentages here are measured against the whole planet (geo.guessProximityPct), not
  * against the heatmap's contour bands — a guess's score must not appear to change after
@@ -29,34 +30,36 @@ export function GuessTrail({
         bottom: 'calc(var(--inset-b) + 0.75rem)',
       }}
     >
-      <div className="hud-panel animate-fade-in w-[min(60vw,14rem)] rounded-xl px-3 py-2">
-        <p className="text-hud mb-1.5 uppercase text-muted">Guesses</p>
+      <div className="sheet animate-fade-in w-[min(60vw,14rem)] px-3 py-2">
+        <p className="label border-b border-rule pb-2">Guesses</p>
         <ol
           aria-label="Guesses so far, newest first"
           /* Scrollable, so it must take pointer events back — and contain them, or a
              flick past the end of the list would start panning the map underneath. */
-          className="pointer-events-auto max-h-[min(38vh,13rem)] space-y-1.5 overflow-y-auto overscroll-contain"
+          className="pointer-events-auto max-h-[min(38vh,13rem)] overflow-y-auto overscroll-contain"
         >
           {newestFirst.map((guess, i) => {
             const country = byId.get(guess.countryId);
             return (
               <li
                 key={`${guess.countryId}:${newestFirst.length - i}`}
-                className="flex items-baseline gap-2"
+                /* The hairline between rows is the whole structure; the last one is
+                   dropped so the tally does not close with a second rule inside the card. */
+                className="flex items-baseline gap-2 border-b border-rule-soft py-1.5 last:border-b-0 last:pb-0"
               >
                 <span
                   className={`min-w-0 flex-1 truncate text-sm ${
-                    guess.correct ? 'text-gold' : 'text-parchment/85'
+                    guess.correct ? 'text-oxblood' : 'text-ink'
                   }`}
                   title={country?.name ?? guess.countryId}
                 >
                   {country?.name ?? guess.countryId}
                 </span>
-                <span className="font-mono tabular shrink-0 text-xs text-muted">
+                <span className="font-mono tabular shrink-0 text-xs text-graphite">
                   {formatKm(guess.distanceKm)}
-                  <span className="ml-0.5 font-sans">km</span>
+                  <span className="label ml-0.5">km</span>
                 </span>
-                <span className="font-mono tabular w-9 shrink-0 text-right text-xs text-cyan/85">
+                <span className="label font-mono tabular w-10 shrink-0 text-right">
                   {guessProximityPct(guess.distanceKm)}%
                 </span>
               </li>

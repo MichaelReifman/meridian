@@ -16,7 +16,7 @@
   }
 
   body {
-    @apply bg-space text-parchment font-sans antialiased;
+    @apply bg-paper text-ink font-sans antialiased;
     /* The map owns every gesture inside it; the page itself never scrolls or
        rubber-bands, which would otherwise fight pinch-zoom on iOS. */
     overscroll-behavior: none;
@@ -29,25 +29,62 @@
     font-feature-settings: 'tnum' 1;
   }
 
+  /* A printed page indicates focus with a rule, not a glow. */
   :focus-visible {
-    @apply outline-none ring-2 ring-gold/70 ring-offset-2;
-    --tw-ring-offset-color: var(--space);
+    @apply outline-none ring-1 ring-ink ring-offset-2;
+    --tw-ring-offset-color: var(--paper);
   }
 
-  /* Fraunces ships a `SOFT` and `WONK` axis; a little of both is what gives it the
-     antique-atlas character rather than a generic modern serif. */
+  /**
+   * Fraunces carries a `SOFT` and a `WONK` axis. A little of each is the difference
+   * between an engraver's serif and a generic modern one, and it is the single detail
+   * doing most of the work in the wordmark.
+   */
   .font-display {
     font-variation-settings:
-      'SOFT' 30,
+      'SOFT' 24,
       'WONK' 1,
-      'opsz' 40;
+      'opsz' 48;
   }
 }
 
 @layer components {
-  /* Shared frame for every floating HUD element (§9 Layout). */
-  .hud-panel {
-    @apply bg-panel/80 border border-hairline shadow-hud backdrop-blur-md;
+  /**
+   * A sheet of stock laid on the page. Opaque, hairline-ruled, barely raised — the
+   * replacement for the frosted-glass panel this design used to lean on.
+   */
+  .sheet {
+    @apply border border-rule bg-plate shadow-sheet;
+    border-radius: 2px;
+  }
+
+  /**
+   * The engraved label: small, widely letterspaced, uppercase, never bold. Weight is
+   * carried by the letterspacing and the rule beneath it, not by heaviness.
+   */
+  .label {
+    @apply font-sans text-label uppercase text-graphite;
+  }
+
+  /**
+   * A double rule — the classic atlas section divider. Drawn as two borders on one
+   * element so it costs nothing structurally.
+   */
+  .rule-double {
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    height: 3px;
+  }
+
+  /**
+   * Text-first action. Printed matter does not have filled pill buttons; it has words
+   * with rules under them, which is what this is until you hover it.
+   */
+  .action {
+    @apply ease-swift border-b border-ink/30 pb-0.5 text-ink transition-colors duration-150;
+  }
+  .action:hover {
+    @apply border-oxblood text-oxblood;
   }
 }
 

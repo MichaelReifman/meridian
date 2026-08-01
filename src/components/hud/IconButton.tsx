@@ -1,5 +1,6 @@
 /**
- * The one button shape in the game: a square icon control with a real accessible name.
+ * The one button shape in the game: a square, hairline-ruled key sitting on the chart,
+ * with a real accessible name.
  *
  * Icons are passed in as children (lucide-react) and are always decorative — the name
  * comes from `label`, which also becomes the pointer tooltip.
@@ -16,12 +17,14 @@ export function IconButton({
   label: string;
   onClick(): void;
   children: ReactNode;
+  /* The tone names are the caller's contract and are left alone; what changed is what
+     they paint — 'gold' is now the oxblood key reserved for the round's own result. */
   tone?: 'default' | 'gold';
 }) {
   const toneClasses =
     tone === 'gold'
-      ? 'text-gold hover:shadow-gold-glow hover:bg-gold/10'
-      : 'text-parchment/85 hover:text-parchment hover:bg-parchment/10';
+      ? 'text-oxblood hover:border-oxblood hover:bg-oxblood/5'
+      : 'text-ink hover:border-ink/45 hover:bg-ink/5';
 
   return (
     <button
@@ -30,8 +33,9 @@ export function IconButton({
       aria-label={label}
       title={label}
       /* 44px square: the minimum comfortable touch target, and it keeps every corner
-         control on the same grid regardless of which icon is inside. */
-      className={`hud-panel pointer-events-auto flex h-11 w-11 items-center justify-center rounded-xl transition-colors duration-200 ease-swift active:scale-95 ${toneClasses}`}
+         control on the same grid regardless of which icon is inside. Pressing it sinks
+         the key into the page rather than shrinking it — paper has no bounce. */
+      className={`sheet ease-swift pointer-events-auto flex h-11 w-11 items-center justify-center transition-colors duration-200 active:shadow-pressed ${toneClasses}`}
     >
       {/* The icon never contributes to the accessible name; `label` is the whole name. */}
       <span aria-hidden="true" className="flex items-center justify-center">

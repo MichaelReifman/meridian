@@ -1,21 +1,18 @@
 /**
- * The title screen: three modes, each offering today's Daily Challenge and unlimited
+ * The title page: three modes, each offering today's Daily Challenge and unlimited
  * Practice.
  *
- * Per mode it answers the two questions a returning player actually has — how long is
- * my streak, and have I already played today — because both change what the Daily
- * button means. A completed daily is still clickable: it reopens the finished round for
- * review, and the store will not let it be replayed.
+ * Composed as the index page of a printed atlas rather than a stack of cards. The three
+ * modes are numbered entries separated by hairline rules; the actions are set as words
+ * with rules under them, not filled buttons. There is no ornament that does not carry
+ * information — the roman numerals index, the rules divide, and everything else is type.
+ *
+ * Per mode it answers the two questions a returning player actually has: how long is my
+ * streak, and have I already played today. A completed daily stays reachable — it
+ * reopens the finished round for review, and the store will not let it be replayed.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import { ChartColumn, Check, ChevronRight, CircleHelp, Flag, Flame, Globe, Landmark, Shuffle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { useModeStats, useSavedRound } from '@/db/hooks';
 import { currentStreakFor } from '@/db/queries';
@@ -23,37 +20,17 @@ import { dailyPuzzle, localDateKey, msUntilLocalMidnight } from '@/lib/daily';
 import { useUiStore } from '@/store/uiStore';
 import { GAME_MODES, type GameMode, type PuzzleKind } from '@/types/game';
 
-/**
- * Two wide, low-alpha washes. The PRD's direction is an observatory chart in deep
- * space, and a flat #0B0E1A page is just dark grey — this is what makes it space.
- */
-const NEBULA =
-  'radial-gradient(58rem 40rem at 12% 4%, rgba(123, 108, 246, 0.18), transparent 62%),' +
-  'radial-gradient(46rem 34rem at 92% 96%, rgba(79, 209, 197, 0.11), transparent 60%)';
-
-const MODE_META: Readonly<Record<GameMode, { title: string; blurb: string; icon: ReactNode }>> = {
-  country: {
-    title: 'Country',
-    blurb: 'You are given a name. Find it on the map.',
-    icon: <Globe size={20} strokeWidth={1.5} />,
-  },
-  capital: {
-    title: 'Capital',
-    blurb: 'You are given a capital city. Find its country.',
-    icon: <Landmark size={20} strokeWidth={1.5} />,
-  },
-  flag: {
-    title: 'Flag',
-    blurb: 'You are given a flag. Find where it flies.',
-    icon: <Flag size={20} strokeWidth={1.5} />,
-  },
+const MODE_META: Readonly<Record<GameMode, { numeral: string; title: string; blurb: string }>> = {
+  country: { numeral: 'I', title: 'Country', blurb: 'A name to place on the map.' },
+  capital: { numeral: 'II', title: 'Capital', blurb: 'A city to attribute to its country.' },
+  flag: { numeral: 'III', title: 'Flag', blurb: 'A flag to trace to where it flies.' },
 };
 
 /**
  * Time to the next set of dailies, refreshed every half minute.
  *
- * Deliberately not a ticking clock: a second-by-second countdown on a menu is noise,
- * and it would re-render three live-query subscribers 86,400 times a day.
+ * Deliberately not a ticking clock: a second-by-second countdown on a title page is
+ * noise, and it would re-render three live-query subscribers 86,400 times a day.
  */
 function useMidnightCountdown(): string {
   const [remaining, setRemaining] = useState(() => msUntilLocalMidnight());
@@ -89,48 +66,49 @@ export function MenuScreen(): JSX.Element {
 
   return (
     <main
-      className="h-full overflow-y-auto overflow-x-hidden bg-space"
+      className="h-full overflow-y-auto overflow-x-hidden bg-paper"
       style={{
         padding:
-          'calc(var(--inset-t) + 2rem) calc(var(--inset-r) + 1.25rem)' +
-          ' calc(var(--inset-b) + 2rem) calc(var(--inset-l) + 1.25rem)',
+          'calc(var(--inset-t) + 2.5rem) calc(var(--inset-r) + 1.5rem)' +
+          ' calc(var(--inset-b) + 2rem) calc(var(--inset-l) + 1.5rem)',
       }}
     >
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0" style={{ backgroundImage: NEBULA }} />
-
-      <div className="relative mx-auto w-full max-w-xl">
+      <div className="mx-auto w-full max-w-lg">
         <header className="animate-rise-in text-center">
-          <h1 className="font-display text-4xl leading-none tracking-tight text-parchment sm:text-5xl">
+          {/* Letterspacing is doing the work a heavier weight would otherwise do, which
+              is what keeps the wordmark reading as engraved rather than merely large. */}
+          <h1 className="font-display text-[1.75rem] uppercase leading-none tracking-wordmark text-ink sm:text-[2.125rem]">
             Meridian
           </h1>
-          <div aria-hidden="true" className="mx-auto mt-4 h-px w-24 bg-gold/45" />
-          <p className="mx-auto mt-4 max-w-sm text-balance text-sm leading-relaxed text-muted">
-            A daily geography deduction. Every wrong guess draws a ring the answer must
-            lie on — cross them until only one country is left.
+          <div aria-hidden="true" className="rule-double mx-auto mt-5 w-full max-w-[22rem]" />
+          <p className="mx-auto mt-5 max-w-sm text-balance text-sm leading-relaxed text-graphite">
+            A daily geography deduction. Every wrong guess draws a ring the answer must lie
+            on — cross them until one country is left.
           </p>
         </header>
 
-        <ul className="mt-8 space-y-3">
+        {/* A single ruled list, not three cards. The top rule closes the header block. */}
+        <ul className="mt-10 border-t border-rule">
           {GAME_MODES.map((mode) => (
-            <li key={mode}>
-              <ModeCard mode={mode} today={today} onStart={start} />
+            <li key={mode} className="border-b border-rule">
+              <ModeEntry mode={mode} today={today} onStart={start} />
             </li>
           ))}
         </ul>
 
-        <nav aria-label="More" className="mt-6 flex items-center justify-center gap-2">
-          <FooterLink onClick={() => setScreen('stats')}>
-            <ChartColumn aria-hidden="true" size={16} strokeWidth={1.75} />
-            Stats
-          </FooterLink>
-          <FooterLink onClick={() => setScreen('howto')}>
-            <CircleHelp aria-hidden="true" size={16} strokeWidth={1.75} />
-            How to play
-          </FooterLink>
+        <nav
+          aria-label="More"
+          className="mt-8 flex items-center justify-center gap-3 text-sm text-graphite"
+        >
+          <FooterLink onClick={() => setScreen('stats')}>Stats</FooterLink>
+          <span aria-hidden="true" className="text-ink/25">
+            ·
+          </span>
+          <FooterLink onClick={() => setScreen('howto')}>How to play</FooterLink>
         </nav>
 
-        <p className="mt-6 text-center text-xs text-muted">
-          New dailies in <span className="font-mono tabular text-parchment">{countdown}</span>
+        <p className="label mt-6 text-center">
+          New dailies in <span className="tabular font-mono text-ink">{countdown}</span>
         </p>
       </div>
     </main>
@@ -138,10 +116,10 @@ export function MenuScreen(): JSX.Element {
 }
 
 /**
- * One mode's row. A component rather than a loop body because each row needs its own
+ * One mode's entry. A component rather than a loop body because each row needs its own
  * live subscriptions to that mode's stats and to today's saved round.
  */
-function ModeCard({
+function ModeEntry({
   mode,
   today,
   onStart,
@@ -163,63 +141,93 @@ function ModeCard({
   const solved = saved?.status === 'solved';
 
   return (
-    <section aria-labelledby={`mode-${mode}`} className="hud-panel rounded-2xl p-4 sm:p-5">
-      <div className="flex items-start gap-3">
-        <span aria-hidden="true" className="mt-0.5 shrink-0 text-cyan">
-          {meta.icon}
+    <section aria-labelledby={`mode-${mode}`} className="py-5">
+      <div className="flex items-baseline gap-4">
+        {/* Fixed width so all three numerals align into a column, as an index would. */}
+        <span
+          aria-hidden="true"
+          className="w-7 shrink-0 font-display text-sm uppercase tracking-widest text-brass"
+        >
+          {meta.numeral}
         </span>
-        <div className="min-w-0 flex-1">
-          <h2 id={`mode-${mode}`} className="font-display text-xl leading-tight text-parchment">
-            {meta.title}
-          </h2>
-          <p className="mt-1 text-sm text-muted">{meta.blurb}</p>
-        </div>
 
-        <p className={`flex shrink-0 items-center gap-1.5 ${streak > 0 ? 'text-gold' : 'text-muted'}`}>
-          <span className="sr-only">
-            Current daily streak: {streak} {streak === 1 ? 'day' : 'days'}.
+        <h2
+          id={`mode-${mode}`}
+          className="min-w-0 flex-1 font-display text-lg uppercase leading-none tracking-[0.14em] text-ink"
+        >
+          {meta.title}
+        </h2>
+
+        {done ? (
+          <span className="label shrink-0 text-oxblood">{solved ? 'Solved' : 'Revealed'}</span>
+        ) : streak > 0 ? (
+          <span className="label shrink-0 text-brass">
+            <span className="sr-only">
+              Current daily streak: {streak} {streak === 1 ? 'day' : 'days'}.
+            </span>
+            <span aria-hidden="true">
+              Streak <span className="tabular font-mono text-ink">{streak}</span>
+            </span>
           </span>
-          <Flame aria-hidden="true" size={15} strokeWidth={1.75} />
-          <span aria-hidden="true" className="font-mono tabular text-sm">
-            {streak}
-          </span>
-        </p>
+        ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
+      <p className="mt-2 pl-11 text-sm leading-relaxed text-graphite">{meta.blurb}</p>
+
+      <div className="mt-3 flex items-center gap-5 pl-11">
+        <EntryAction
           onClick={() => onStart(mode, 'daily')}
-          aria-label={
+          emphasis={!done}
+          label={
             done
               ? `Review today's ${meta.title} daily challenge, already ${solved ? 'solved' : 'finished'}`
               : `Play today's ${meta.title} daily challenge`
           }
-          className={
-            done
-              ? 'ease-swift inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-hairline px-4 py-2.5 text-sm text-gold transition-colors duration-200 hover:bg-[rgba(232,179,77,0.1)]'
-              : 'ease-swift inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 py-2.5 text-sm font-medium text-space transition duration-200 hover:brightness-110'
-          }
         >
-          {done ? (
-            <Check aria-hidden="true" size={16} strokeWidth={2} />
-          ) : (
-            <ChevronRight aria-hidden="true" size={16} strokeWidth={2} />
-          )}
-          {done ? 'Daily done' : 'Daily'}
-        </button>
+          {done ? 'Review' : 'Daily'}
+        </EntryAction>
 
-        <button
-          type="button"
+        <EntryAction
           onClick={() => onStart(mode, 'practice')}
-          aria-label={`Start a ${meta.title} practice round`}
-          className="ease-swift inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-hairline px-4 py-2.5 text-sm text-parchment transition-colors duration-200 hover:bg-parchment/10"
+          label={`Start a ${meta.title} practice round`}
         >
-          <Shuffle aria-hidden="true" size={16} strokeWidth={1.75} />
           Practice
-        </button>
+        </EntryAction>
       </div>
     </section>
+  );
+}
+
+/**
+ * An action set as a word with a rule under it.
+ *
+ * `py-2 -my-2` keeps the visible rule tight against the text while the hit area stays a
+ * comfortable size on a phone — the trap with text-as-button is a 16px-tall target.
+ */
+function EntryAction({
+  onClick,
+  label,
+  emphasis = false,
+  children,
+}: {
+  onClick(): void;
+  label: string;
+  emphasis?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`ease-swift -my-2 border-b py-2 text-sm transition-colors duration-150 ${
+        emphasis
+          ? 'border-oxblood/60 font-medium text-oxblood hover:border-oxblood'
+          : 'border-ink/25 text-ink hover:border-ink/70'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -228,7 +236,7 @@ function FooterLink({ onClick, children }: { onClick(): void; children: ReactNod
     <button
       type="button"
       onClick={onClick}
-      className="ease-swift inline-flex items-center gap-2 rounded-full border border-hairline px-4 py-2 text-sm text-parchment transition-colors duration-200 hover:bg-parchment/10"
+      className="ease-swift -my-2 border-b border-ink/25 py-2 text-sm text-ink transition-colors duration-150 hover:border-ink/70"
     >
       {children}
     </button>

@@ -91,8 +91,8 @@ export function UpdatePrompt(): JSX.Element | null {
       style={{ bottom: 'calc(var(--inset-b) + 4.75rem)' }}
     >
       {needRefresh ? (
-        <div className="hud-panel animate-rise-in pointer-events-auto flex max-w-[92vw] items-center gap-3 rounded-2xl py-2 pl-4 pr-2">
-          <span className="text-sm text-parchment">A new version is ready.</span>
+        <div className="sheet animate-rise-in pointer-events-auto flex max-w-[92vw] items-center gap-3 py-2 pl-4 pr-2">
+          <span className="text-sm text-ink">A new version is ready.</span>
           <button
             type="button"
             disabled={updating}
@@ -108,7 +108,9 @@ export function UpdatePrompt(): JSX.Element | null {
                  to do nothing. Whichever path wins, the page reloads exactly once. */
               window.setTimeout(() => window.location.reload(), RELOAD_FALLBACK_MS);
             }}
-            className="ease-swift inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gold px-3 py-1.5 text-sm font-medium text-space transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+            /* A hairline-ruled key in oxblood, not a filled pill: printed matter marks
+               its primary action with colour and a rule, never with a slab of ink. */
+            className="ease-swift inline-flex shrink-0 items-center gap-1.5 rounded-sheet border border-oxblood/45 bg-paper px-3 py-1.5 text-sm text-oxblood transition-colors duration-200 hover:border-oxblood hover:bg-oxblood/5 disabled:opacity-60"
           >
             <Download aria-hidden="true" size={15} strokeWidth={2} />
             {updating ? 'Updating…' : 'Reload'}
@@ -117,13 +119,13 @@ export function UpdatePrompt(): JSX.Element | null {
             type="button"
             aria-label="Dismiss update notice"
             onClick={() => setNeedRefresh(false)}
-            className="ease-swift flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors duration-200 hover:bg-parchment/10 hover:text-parchment"
+            className="ease-swift flex h-8 w-8 shrink-0 items-center justify-center rounded-sheet text-graphite transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden="true" size={16} strokeWidth={1.75} />
           </button>
         </div>
       ) : (
-        <div className="hud-panel animate-rise-in max-w-[80vw] rounded-full px-4 py-2 text-center text-sm text-parchment">
+        <div className="sheet animate-rise-in max-w-[80vw] px-4 py-2 text-center text-sm text-ink">
           Ready to play offline.
         </div>
       )}

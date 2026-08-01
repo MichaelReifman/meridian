@@ -1,64 +1,86 @@
 /**
- * Meridian design tokens — "Dark Cosmic" (PRD §9).
+ * Meridian design tokens — "Engraved Atlas".
  *
- * Single source of truth for the palette. Tailwind maps its colour names onto these
- * variables, and src/lib/ramp.ts reads them at runtime so the SVG heatmap and the
- * WebGL globe are guaranteed to agree on every colour without duplicating hex codes.
+ * The reference is a printed chart: warm rag paper, one weight of iron-gall ink, a
+ * brass rule, and oxblood for the things that matter. Colour does very little work
+ * here; the hierarchy is carried by rules, spacing, letterspacing and tone.
  *
- * There is no light theme. The game is a night-sky instrument; a light variant would
- * undermine both the reveal and the heatmap's luminance ordering.
+ * Three prohibitions, and they are the whole character of the thing:
+ *
+ *   · No glows. Nothing on paper emits light. Depth comes from a hairline rule or a
+ *     shift in paper tone, never from a coloured halo.
+ *   · No blur. Frosted-glass panels are a screen affectation with no print analogue;
+ *     surfaces here are opaque stock laid on the page.
+ *   · No gradient fields. A flat, evenly-inked ground is what makes the linework and
+ *     the type read. Gradients are reserved for the heatmap, where they mean something.
+ *
+ * Colours are stored as bare "R G B" channel triples so Tailwind can synthesise alpha
+ * variants — its palette entries are `rgb(var(--x-rgb) / <alpha-value>)`, and that
+ * placeholder can only be filled if the variable holds channels rather than a finished
+ * colour. Composed forms follow for plain CSS, SVG attributes and three.js materials.
  */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Core palette (PRD §9), stored as bare "R G B" channel triples.
+  /* --- ground ------------------------------------------------------------- */
+  --paper-rgb: 242 237 225; /* #F2EDE1 warm rag stock — the page itself */
+  --leaf-rgb: 233 227 212; /* #E9E3D4 a second sheet laid on the first */
+  --plate-rgb: 250 247 240; /* #FAF7F0 the brightest stock, for lifted surfaces */
 
-     The triples are what let Tailwind synthesise alpha variants: its palette entries
-     are `rgb(var(--x-rgb) / <alpha-value>)`, and that placeholder can only be filled
-     if the variable holds channels rather than a finished colour. Defining these as
-     `#e8b34d` instead makes every `bg-gold/90`-style utility silently vanish, and a
-     hard build error inside `@apply`. */
-  --space-rgb: 11 14 26; /* deep space navy — base, deliberately not pure black */
-  --panel-rgb: 22 27 46; /* panel / chrome surface */
-  --gold-rgb: 232 179 77; /* correct answers, the reveal pin, streaks */
-  --cyan-rgb: 79 209 197; /* globe atmosphere glow, secondary accent */
-  --violet-rgb: 123 108 246; /* heatmap cold end, ambient nebula */
-  --parchment-rgb: 244 241 234; /* primary text, used sparingly against the dark base */
+  /* --- ink ---------------------------------------------------------------- */
+  --ink-rgb: 23 20 15; /* #17140F warm black — type and linework */
+  --graphite-rgb: 92 85 72; /* #5C5548 secondary type, softened but not grey */
 
-  /* Derived chrome. Inert terrain sits only just above the base so that any tinted
-     country reads as lit rather than merely differently coloured. */
-  --terrain-rgb: 28 34 56;
-  --terrain-edge-rgb: 42 51 80;
+  /* --- accents ------------------------------------------------------------ */
+  --oxblood-rgb: 123 45 38; /* #7B2D26 the answer, the streak, the primary action */
+  /* #7E6231 aged brass. Darker than the plate-gold this started as, because brass also
+     labels the streak and the numerals — at #A8834A it measured 2.99:1 on paper and
+     failed AA outright. At this value it carries text at 4.89:1 and still reads metal. */
+  --brass-rgb: 126 98 49;
 
-  /* Composed forms, for everywhere a finished colour is wanted: plain CSS, SVG
-     attributes, and the three.js material colours in the globe. */
-  --space: rgb(var(--space-rgb));
-  --panel: rgb(var(--panel-rgb));
-  --gold: rgb(var(--gold-rgb));
-  --cyan: rgb(var(--cyan-rgb));
-  --violet: rgb(var(--violet-rgb));
-  --parchment: rgb(var(--parchment-rgb));
-  --terrain: rgb(var(--terrain-rgb));
-  --terrain-edge: rgb(var(--terrain-edge-rgb));
+  /* --- cartography -------------------------------------------------------- */
+  /* Sea sits a clear step below land. An atlas separates the two mostly by coastline, so
+     the gap is deliberately small — but at the original #D6D2C4 it measured 1.11:1
+     against land, which is close enough to invisible that the coast was doing all the
+     work. 1.29:1 keeps the restraint and still reads as water at a glance. */
+  --sea-rgb: 201 195 177; /* #C9C3B1 ocean */
+  --land-rgb: 228 220 200; /* #E4DCC8 territory */
+  --coast-rgb: 176 165 141; /* #B0A58D coastlines and borders */
 
-  /* Already translucent by definition, so they carry their own alpha and are never
-     used with an opacity modifier. */
-  --hairline: rgb(var(--parchment-rgb) / 0.09);
-  --muted: rgb(var(--parchment-rgb) / 0.55);
+  /* --- composed ----------------------------------------------------------- */
+  --paper: rgb(var(--paper-rgb));
+  --leaf: rgb(var(--leaf-rgb));
+  --plate: rgb(var(--plate-rgb));
+  --ink: rgb(var(--ink-rgb));
+  --graphite: rgb(var(--graphite-rgb));
+  --oxblood: rgb(var(--oxblood-rgb));
+  --brass: rgb(var(--brass-rgb));
+  --sea: rgb(var(--sea-rgb));
+  --land: rgb(var(--land-rgb));
+  --coast: rgb(var(--coast-rgb));
 
-  /* Heatmap ramp. Violet → cyan → gold is the PRD's blue→gold scale with a legible
-     midpoint: it rises monotonically in luminance, so the gradient survives greyscale
-     and every common form of colour blindness. The arrow and distance readout carry
-     the same information independently, so proximity is never colour-alone (§4).
+  /* Hairlines carry their own alpha, so they are never used with an opacity modifier.
+     Two weights: `rule` for structure, `rule-soft` for grouping without division. */
+  --rule: rgb(var(--ink-rgb) / 0.22);
+  --rule-soft: rgb(var(--ink-rgb) / 0.1);
 
-     Hex here, not channel triples: these are read only by src/lib/ramp.ts, never by
-     Tailwind, so they never need an alpha placeholder. */
-  --ramp-0: #7b6cf6;
-  --ramp-1: #4fd1c5;
-  --ramp-2: #e8b34d;
+  /**
+   * Heatmap ramp — a single sequential ink wash, pale straw through brass to deep
+   * oxblood.
+   *
+   * Deliberately monotonic in luminance rather than spanning hues. On a light ground
+   * "hot" reading as heavily inked is the natural metaphor, and because the ramp
+   * descends in lightness the whole gradient survives greyscale intact — which makes
+   * it robust for every form of colour blindness at once, not just the common ones.
+   * The compass arrow and kilometre readout still carry the same information
+   * independently, so proximity is never colour-alone (PRD §4).
+   */
+  --ramp-0: #d9cfb4;
+  --ramp-1: #b08a46;
+  --ramp-2: #6e2119;
 
-  /* Safe-area insets, so HUD corners clear notches and home indicators. */
+  /* Safe-area insets, so page furniture clears notches and home indicators. */
   --inset-t: env(safe-area-inset-top, 0px);
   --inset-r: env(safe-area-inset-right, 0px);
   --inset-b: env(safe-area-inset-bottom, 0px);

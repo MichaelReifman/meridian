@@ -1,6 +1,11 @@
 /**
  * The playing surface: an equal-area world chart that accepts a guess per country.
  *
+ * Drawn as an engraved chart rather than a screen: flat inked ground, hairline
+ * coastlines, and no fill that is not carrying information. Ocean is a shade darker than
+ * land, which is the relationship a printed atlas has always used to separate water from
+ * territory on light stock — invert it and the eye reads the sea as the continent.
+ *
  * Design notes that are not obvious from the code:
  *
  * · Projection is Equal Earth. The game is decided by distance intuition, and any
@@ -9,9 +14,9 @@
  *
  * · The heatmap is centred on the player's *guesses*, never on the answer. Each wrong
  *   guess contributes a ring — the answer lies exactly that far away — and a country is
- *   lit by how well it satisfies every ring at once. Centring on the answer instead
- *   would hand the game away: a field peaking at the target makes the target the
- *   brightest country on the map, and even a flat-filled disc betrays its own centre.
+ *   inked by how well it satisfies every ring at once. Centring on the answer instead
+ *   would hand the game away: a field peaking at the target makes the target the most
+ *   heavily inked country on the map, and even a flat-filled disc betrays its own centre.
  *   Rings reveal nothing alone and only pin a location where they intersect, which is
  *   the triangulation the HUD readout has always described.
  *
@@ -20,7 +25,8 @@
  *   would drop frames.
  *
  * · Colour is never the only proximity signal — the HUD's compass arrow and kilometre
- *   readout carry the same information independently.
+ *   readout carry the same information independently, and the ramp descends in luminance
+ *   so it survives greyscale.
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -77,13 +83,23 @@ const REPEAT_GUESS_MS = 400;
 
 /* SVG paint, so these are colour strings rather than Tailwind classes — but still
    derived from the palette tokens so the map cannot drift from the rest of the UI. */
-const TERRAIN_FILL = 'var(--terrain)';
-const INERT_STROKE = 'var(--terrain-edge)';
-const COAST_STROKE = 'rgb(var(--parchment-rgb) / 0.14)';
-const GUESSED_STROKE = 'rgb(var(--parchment-rgb) / 0.78)';
-const LAST_GUESS_STROKE = 'var(--gold)';
-const MICRO_RING = 'rgb(var(--parchment-rgb) / 0.5)';
-const GRATICULE_STROKE = 'rgb(var(--parchment-rgb) / 0.045)';
+
+/** Playable territory, before any ring has tinted it. */
+const LAND_FILL = 'var(--land)';
+/**
+ * Territory the game never plays. A quieter stock than `LAND_FILL` rather than a
+ * different hue: the difference has to be legible at a glance, without hovering, but it
+ * must not compete with the heatmap for attention.
+ */
+const INERT_FILL = 'var(--leaf)';
+const INERT_STROKE = 'var(--coast)';
+const COAST_STROKE = 'rgb(var(--coast-rgb) / 0.9)';
+const GUESSED_STROKE = 'rgb(var(--ink-rgb) / 0.75)';
+const LAST_GUESS_STROKE = 'var(--oxblood)';
+const MICRO_RING = 'rgb(var(--ink-rgb) / 0.5)';
+/* The graticule is a reference grid, not a feature: barely more than a crease in the
+   paper, and it must never read as a border. */
+const GRATICULE_STROKE = 'rgb(var(--ink-rgb) / 0.07)';
 
 const FILL_TRANSITION = 'fill 200ms cubic-bezier(0.22, 1, 0.36, 1), stroke 150ms linear';
 
@@ -91,11 +107,12 @@ const FILL_TRANSITION = 'fill 200ms cubic-bezier(0.22, 1, 0.36, 1), stroke 150ms
  * Tailwind's focus ring is a box-shadow, and SVG elements do not paint box-shadows —
  * so the global `:focus-visible` rule leaves 234 keyboard targets with no visible
  * focus at all. An `outline` does render on SVG, and this selector outranks the
- * global rule without needing `!important`.
+ * global rule without needing `!important`. Drawn in ink, because a printed sheet
+ * indicates focus with a rule rather than a colour.
  */
 const FOCUS_CSS = `
 .mrd-map [tabindex='0']:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 .mrd-map [tabindex]:focus:not(:focus-visible) {
@@ -205,7 +222,7 @@ export function WorldMap({
     for (const c of COUNTRIES) {
       const band = quantizeBands(ringConsistency([c.lon, c.lat], rings, tolerance));
       if (band <= 0) {
-        next.set(c.id, TERRAIN_FILL);
+        next.set(c.id, LAND_FILL);
         continue;
       }
       let colour = paint.get(band);
@@ -380,7 +397,7 @@ export function WorldMap({
       ref={containerRef}
       /* `touch-none` hands every touch gesture to d3-zoom; without it iOS steals the
          pinch for page zoom and the map judders. */
-      className="mrd-map relative h-full w-full select-none overflow-hidden bg-space touch-none"
+      className="mrd-map relative h-full w-full select-none overflow-hidden bg-paper touch-none"
       onPointerDownCapture={handlePointerDown}
     >
       <style>{FOCUS_CSS}</style>
@@ -389,7 +406,7 @@ export function WorldMap({
       <button
         type="button"
         onClick={skipMap}
-        className="absolute left-3 top-3 z-30 -translate-y-[200%] rounded-lg border border-hairline bg-panel px-3 py-2 text-sm text-parchment shadow-hud transition-transform duration-200 ease-swift focus-visible:translate-y-0"
+        className="sheet absolute left-3 top-3 z-30 -translate-y-[200%] px-3 py-2 text-sm text-ink shadow-lifted transition-transform duration-200 ease-swift focus-visible:translate-y-0"
       >
         Skip the map
       </button>
@@ -401,15 +418,17 @@ export function WorldMap({
           paddingLeft: 'calc(1rem + var(--inset-l))',
         }}
       >
-        <div className="hud-panel pointer-events-auto flex flex-col overflow-hidden rounded-xl">
+        {/* An instrument face laid on the chart: square-cut, three keys stacked behind
+            one hairline, dividers rather than gaps. */}
+        <div className="sheet pointer-events-auto flex flex-col overflow-hidden rounded-none shadow-lifted">
           <MapControlButton label="Zoom in" onClick={() => nudgeZoom(ZOOM_STEP)}>
             <Plus size={16} strokeWidth={1.75} />
           </MapControlButton>
-          <div aria-hidden="true" className="h-px bg-hairline" />
+          <div aria-hidden="true" className="h-px bg-rule" />
           <MapControlButton label="Zoom out" onClick={() => nudgeZoom(1 / ZOOM_STEP)}>
             <Minus size={16} strokeWidth={1.75} />
           </MapControlButton>
-          <div aria-hidden="true" className="h-px bg-hairline" />
+          <div aria-hidden="true" className="h-px bg-rule" />
           <MapControlButton label="Reset map view" onClick={resetView}>
             <Maximize2 size={15} strokeWidth={1.75} />
           </MapControlButton>
@@ -447,10 +466,12 @@ export function WorldMap({
             filterZoomEvent={allowZoomGesture}
             onMoveEnd={handleMoveEnd}
           >
+            {/* The ocean. Deliberately darker than either land tone: on light stock the
+                water has to be the heavier ink or the chart reads inside out. */}
             <Sphere
               id="mrd-sphere"
-              fill="var(--space)"
-              stroke="var(--hairline)"
+              fill="var(--sea)"
+              stroke="var(--coast)"
               strokeWidth={0.75}
               vectorEffect="non-scaling-stroke"
               pointerEvents="none"
@@ -491,7 +512,7 @@ export function WorldMap({
                             countryId=""
                             label={null}
                             enabled={false}
-                            fill={TERRAIN_FILL}
+                            fill={INERT_FILL}
                             stroke={INERT_STROKE}
                             strokeWidth={0.5}
                             onPointerGuess={handlePointerGuess}
@@ -509,7 +530,7 @@ export function WorldMap({
                           countryId={country.id}
                           label={guessed ? `${country.name}, already guessed` : country.name}
                           enabled={enabled}
-                          fill={fills.get(country.id) ?? TERRAIN_FILL}
+                          fill={fills.get(country.id) ?? LAND_FILL}
                           stroke={
                             isLast
                               ? LAST_GUESS_STROKE
@@ -578,7 +599,7 @@ function MapControlButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center text-muted transition-colors duration-200 ease-swift hover:bg-parchment/10 hover:text-parchment active:text-gold"
+      className="flex h-10 w-10 items-center justify-center text-graphite transition-colors duration-200 ease-swift hover:bg-ink/5 hover:text-ink active:text-oxblood"
     >
       <span aria-hidden="true" className="flex items-center justify-center">
         {children}
@@ -634,7 +655,7 @@ const CountryPath = memo(function CountryPath({
   /* react-simple-maps applies `hover` on keyboard focus too, so this doubles as the
      focus treatment for the country fill. */
   const lifted: CSSProperties = active
-    ? { ...base, stroke: 'var(--gold)', strokeWidth: Math.max(strokeWidth, 1.75) }
+    ? { ...base, stroke: 'var(--oxblood)', strokeWidth: Math.max(strokeWidth, 1.75) }
     : base;
 
   return (
@@ -710,7 +731,7 @@ function MicroMarkerLayer({
             key={country.id}
             country={country}
             enabled={enabled}
-            fill={fills.get(country.id) ?? TERRAIN_FILL}
+            fill={fills.get(country.id) ?? LAND_FILL}
             ring={isLast ? LAST_GUESS_STROKE : guessed ? GUESSED_STROKE : MICRO_RING}
             label={guessed ? `${country.name}, already guessed` : country.name}
             onPointerGuess={onPointerGuess}
@@ -751,7 +772,7 @@ const MicroMarker = memo(function MicroMarker({
     cursor: enabled ? 'pointer' : 'default',
     transition: 'color 150ms linear',
   };
-  const lifted: CSSProperties = enabled ? { ...base, color: 'var(--gold)' } : base;
+  const lifted: CSSProperties = enabled ? { ...base, color: 'var(--oxblood)' } : base;
 
   return (
     <Marker

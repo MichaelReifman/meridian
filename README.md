@@ -41,9 +41,21 @@ Guesses are unlimited; your score is the guess count. Every wrong guess fires **
 
 The field is centred on your **guesses**, never on the answer — see [Why the heatmap is not a hot-or-cold blob](#why-the-heatmap-is-not-a-hot-or-cold-blob).
 
-Proximity is never conveyed by colour alone: the ramp runs violet → cyan → gold, rising monotonically in luminance so it survives greyscale and the common forms of colour blindness, and the arrow and distance readout carry the same information independently.
+Proximity is never conveyed by colour alone: the ramp is a single sequential ink wash — pale straw through brass to deep oxblood — descending monotonically in luminance, so the whole gradient survives greyscale and is therefore robust to every form of colour blindness at once rather than just the common ones. The arrow and distance readout carry the same information independently.
 
-On a solve or a give-up, the flat map crossfades into a rotating 3D globe that flies to the answer and drops a glowing pin.
+On a solve or a give-up, the flat map crossfades into an engraved globe that flies to the answer and drops an oxblood pin.
+
+## Design
+
+The interface is set as a printed chart: warm rag paper, iron-gall ink, a brass rule, oxblood for the things that matter. Colour does very little work — hierarchy is carried by rules, spacing, letterspacing and tone.
+
+Three prohibitions define the style, and they are enforced by the token layer rather than by convention:
+
+1. **No glows.** Nothing on paper emits light. Depth is a hairline rule or a shift in paper tone, never a coloured halo.
+2. **No blur.** Frosted glass is a screen affectation with no print analogue; surfaces are opaque stock.
+3. **No gradient fields.** A flat, evenly-inked ground is what makes the linework read. The heatmap ramp is the only gradient in the app, because there it means something.
+
+Every text pair in the palette clears WCAG AA for normal text — brass in particular was darkened from a plate-gold to an aged bronze after measuring 2.99:1 on paper, and sea was stepped down from land after the two measured 1.11:1 apart and the coastline was doing all the work.
 
 ### Why the heatmap is not a hot-or-cold blob
 

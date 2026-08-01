@@ -1,14 +1,15 @@
 /**
  * The app's last line of defence.
  *
- * A render error anywhere in Meridian would otherwise leave a black screen: the body
- * is `bg-space`, so React unmounting the tree looks exactly like a page that never
- * loaded. This catches it and offers the two recoveries that actually help — retry the
- * render (enough for a transient failure, and it keeps the player's round in memory)
- * and a full reload (the only way out of corrupt module state).
+ * A render error anywhere in Meridian would otherwise leave a bare page: React unmounting
+ * the tree looks exactly like a sheet that never got printed. This catches it and offers
+ * the two recoveries that actually help — retry the render (enough for a transient
+ * failure, and it keeps the player's round in memory) and a full reload (the only way out
+ * of corrupt module state).
  *
- * Deliberately not styled as a browser error dialog: the same cosmic panel the rest of
- * the game uses, so a crash reads as part of the instrument rather than a stack trace.
+ * Deliberately not styled as a browser error dialog. It is set as an errata notice on the
+ * same stock as the rest of the atlas, so a crash reads as part of the volume rather than
+ * as a stack trace.
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
@@ -49,41 +50,45 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div
         role="alert"
-        className="flex h-full w-full items-center justify-center overflow-y-auto bg-space"
+        className="flex h-full w-full items-center justify-center overflow-y-auto bg-paper"
         style={{
           padding:
             'calc(var(--inset-t) + 1.5rem) calc(var(--inset-r) + 1.25rem)' +
             ' calc(var(--inset-b) + 1.5rem) calc(var(--inset-l) + 1.25rem)',
         }}
       >
-        <div className="hud-panel animate-rise-in w-full max-w-md rounded-2xl p-6 sm:p-8">
-          <p className="text-hud font-mono uppercase text-gold">Lost the signal</p>
-          <h1 className="font-display mt-2 text-2xl leading-tight text-parchment">
+        <div className="sheet animate-rise-in w-full max-w-md p-6 sm:p-8">
+          <p className="label">Errata</p>
+          <h1 className="mt-3 font-display text-xl uppercase leading-snug tracking-[0.14em] text-oxblood">
             Meridian hit an error
           </h1>
-          <p className="mt-3 text-sm text-muted">
+          <div aria-hidden="true" className="rule-double mt-4" />
+          <p className="mt-4 text-sm leading-relaxed text-graphite">
             The round is not lost — daily progress and streaks are stored on this device and
             will still be here.
           </p>
 
           {error.message && (
-            <p className="mt-4 max-h-24 overflow-y-auto rounded-lg border border-hairline bg-space px-3 py-2 font-mono text-xs text-muted">
+            /* Set on the second sheet tone so the machine's own words are visibly a
+               quotation rather than part of the notice. */
+            <p className="mt-4 max-h-24 overflow-y-auto rounded-sheet border border-rule bg-leaf px-3 py-2 font-mono text-xs text-graphite">
               {error.message}
             </p>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+          {/* Words with rules under them, matching every other action in the atlas. */}
+          <div className="mt-7 flex flex-wrap items-center justify-end gap-6">
             <button
               type="button"
               onClick={this.retry}
-              className="ease-swift rounded-full border border-hairline px-4 py-2.5 text-sm text-parchment transition-colors duration-200 hover:bg-parchment/10"
+              className="ease-swift -my-2 border-b border-ink/25 py-2 text-sm text-ink transition-colors duration-150 hover:border-ink/70"
             >
               Try again
             </button>
             <button
               type="button"
               onClick={this.reload}
-              className="ease-swift rounded-full bg-gold px-5 py-2.5 text-sm font-medium text-space transition duration-200 hover:brightness-110"
+              className="ease-swift -my-2 border-b border-oxblood/60 py-2 text-sm font-medium text-oxblood transition-colors duration-150 hover:border-oxblood"
             >
               Reload Meridian
             </button>

@@ -1,10 +1,15 @@
 /**
- * The reveal (PRD §5) — the one place the dark cosmic direction is allowed to be loud.
+ * The reveal (PRD §5) — a copperplate globe, printed on the same page as everything else.
  *
- * The flat map crossfades into a rotating globe, the camera flies in on the target,
- * a gold pin drops, and a faint great-circle trail traces the player's guesses across
+ * The flat map crossfades into an engraved sphere on paper: brass graticule, ink
+ * coastlines, a crisp ink limb at the silhouette. The camera flies in on the target, an
+ * oxblood pin drops, and a fine great-circle trail traces the player's guesses across
  * the surface. Everything else in the app stays at 250 ms and understated; this is the
  * single showpiece, and it is fully skipped under prefers-reduced-motion.
+ *
+ * Nothing here emits light. There is no atmosphere shell and no starfield — both were
+ * artefacts of the dark direction, and additive blending on a cream ground only blows
+ * out to white anyway. Depth is carried by linework, exactly as an engraver would.
  *
  * This module is lazy-loaded by the shell, which is why it may import three, R3F and
  * topojson-client at module scope. Nothing on the critical path may import it.
@@ -21,15 +26,11 @@ import {
 } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-  AdditiveBlending,
-  BackSide,
   BufferGeometry,
   Float32BufferAttribute,
   Line,
   LineBasicMaterial,
   LineSegments,
-  Points,
-  PointsMaterial,
   Quaternion,
   ShaderMaterial,
   Vector3,
@@ -72,12 +73,15 @@ const GLOBE_RADIUS = 1;
  * outlines at +0.0025 clear it everywhere without visibly floating.
  */
 const COAST_RADIUS = 1.0025;
+/** Just inside the coastlines: the instrument's scale is ruled *under* the land. */
+const GRATICULE_RADIUS = 1.0015;
+/** Degrees between meridians and parallels, and degrees per drawn segment. */
+const GRATICULE_STEP = 30;
+const GRATICULE_RESOLUTION = 4;
 const TRAIL_RADIUS = 1.012;
 /** Extra height at the midpoint of a leg, scaled by how far that leg travels. */
 const TRAIL_BULGE = 0.12;
 const NODE_RADIUS = 1.008;
-const ATMOSPHERE_RADIUS = 1.16;
-const STAR_RADIUS = 34;
 const PIN_STEM = 0.075;
 /** How far above the surface the pin starts its drop, in globe radii. */
 const PIN_DROP_HEIGHT = 0.38;
@@ -104,10 +108,6 @@ const START_LON_LEAD = 64;
 const START_LAT_FLATTEN = 0.35;
 const START_TILT_DEG = 14;
 
-const NEBULA =
-  'radial-gradient(60rem 42rem at 14% 8%, rgba(123, 108, 246, 0.20), transparent 62%),' +
-  'radial-gradient(46rem 34rem at 88% 94%, rgba(79, 209, 197, 0.12), transparent 60%)';
-
 const SAFE_PADDING =
   'calc(var(--inset-t) + 1rem) calc(var(--inset-r) + 1rem)' +
   ' calc(var(--inset-b) + 1rem) calc(var(--inset-l) + 1rem)';
@@ -127,10 +127,11 @@ const tokenCache = new Map<string, string>();
 /**
  * Always returns `#rrggbb`, whatever form the token is authored in.
  *
- * Normalising here is load-bearing twice over: the palette tokens resolve to
- * `rgb(11 14 26)` rather than hex, and three's `Color.setStyle` does not understand
- * CSS Color 4's space-separated `rgb()` — so handing the raw value to a material
- * would fail as surely as parsing it as hex would.
+ * Normalising here is load-bearing twice over: the palette tokens are stored as channel
+ * triples and composed back up, so they resolve to `rgb(242 237 225)` rather than hex,
+ * and three's `Color.setStyle` does not understand CSS Color 4's space-separated
+ * `rgb()` — so handing the raw value to a material would fail as surely as parsing it
+ * as hex would.
  */
 function token(name: string, fallback: string): string {
   const hit = tokenCache.get(name);
@@ -158,7 +159,7 @@ function tokenRgb01(name: string, fallback: string): [number, number, number] {
 
 /* ------------------------------------------------------------------------- shaders */
 
-const RIM_VERTEX = `
+const LIMB_VERTEX = `
 varying vec3 vNormal;
 void main() {
   vNormal = normalize(normalMatrix * normal);
@@ -166,31 +167,22 @@ void main() {
 }
 `;
 
-/** Dark ocean with a limb light: f rises from 0 at the sub-camera point to 1 at the edge. */
-const GLOBE_FRAGMENT = `
-uniform vec3 uBase;
-uniform vec3 uRim;
-varying vec3 vNormal;
-void main() {
-  float f = pow(1.0 - clamp(dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 2.4);
-  gl_FragColor = vec4(uBase + uRim * f, 1.0);
-}
-`;
-
 /**
- * The atmosphere is a back-side shell. Only the annulus outside the globe's silhouette
- * survives the depth test, and across it the view-space normal tips away from the
- * camera — so keying on -dot puts the brightest ring hard against the limb and fades
- * it to nothing at the shell's own edge. Alpha stays at 1 because additive blending
- * multiplies by it; the falloff is premultiplied into the colour instead.
+ * Flat stock with an inked limb.
+ *
+ * `f` is the facing ratio: 0 at the sub-camera point, 1 at the silhouette. Raised to a
+ * high power it stays at nothing across the whole disc and only climbs in the last few
+ * degrees, which lands the ink as a hairline hard against the edge rather than as a
+ * shaded terminator. That is how an engraver draws a sphere: the body is untouched
+ * paper and the roundness is one line at the limb.
  */
-const ATMOSPHERE_FRAGMENT = `
-uniform vec3 uColor;
-uniform float uIntensity;
+const GLOBE_FRAGMENT = `
+uniform vec3 uBody;
+uniform vec3 uLimb;
 varying vec3 vNormal;
 void main() {
-  float f = pow(clamp(-dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 2.4);
-  gl_FragColor = vec4(uColor * f * uIntensity, 1.0);
+  float f = pow(1.0 - clamp(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 16.0);
+  gl_FragColor = vec4(mix(uBody, uLimb, f * 0.92), 1.0);
 }
 `;
 
@@ -385,11 +377,12 @@ function makeLineSegments(positions: Float32Array, color: string, opacity: numbe
 function makeTrail(positions: Float32Array, color: string): Line {
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  // Ordinary alpha blending: a drawn line sits *on* the paper. Additive would lighten
+  // the cream ground towards white, which is the opposite of ink.
   const material = new LineBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.8,
-    blending: AdditiveBlending,
+    opacity: 0.72,
     depthWrite: false,
     toneMapped: false,
   });
@@ -397,70 +390,43 @@ function makeTrail(positions: Float32Array, color: string): Line {
 }
 
 /**
- * A fixed starfield. Seeded rather than Math.random so the sky is identical on every
- * reveal — a field that reshuffles between rounds reads as a glitch.
+ * The graticule at 30°, as an atlas plate rules it: meridians pole to pole, parallels
+ * stopping at ±60° so the lines do not knot into a solid cap where they converge.
+ *
+ * Segmented every few degrees rather than drawn as chords — a straight line between two
+ * points 30° apart would sink through the sphere and disappear behind it.
  */
-function makeStars(color: string): Points {
-  const COUNT = 900;
-  const arr = new Float32Array(COUNT * 3);
-  let seed = 0x9e3779b9;
-  const rand = (): number => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 0x100000000;
+function buildGraticulePositions(): Float32Array {
+  const out: number[] = [];
+  const push = (lon: number, lat: number): void => {
+    const [x, y, z] = lonLatToVec3(lon, lat);
+    out.push(x * GRATICULE_RADIUS, y * GRATICULE_RADIUS, z * GRATICULE_RADIUS);
   };
-  for (let i = 0; i < COUNT; i++) {
-    // Uniform over the sphere needs a uniform cos(θ); sampling θ directly clumps at
-    // the poles.
-    const u = rand() * 2 - 1;
-    const phi = rand() * Math.PI * 2;
-    const s = Math.sqrt(1 - u * u);
-    const r = STAR_RADIUS * (0.85 + rand() * 0.3);
-    arr[i * 3] = s * Math.cos(phi) * r;
-    arr[i * 3 + 1] = u * r;
-    arr[i * 3 + 2] = s * Math.sin(phi) * r;
+  for (let lon = -180; lon < 180; lon += GRATICULE_STEP) {
+    for (let lat = -90; lat < 90; lat += GRATICULE_RESOLUTION) {
+      push(lon, lat);
+      push(lon, lat + GRATICULE_RESOLUTION);
+    }
   }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(arr, 3));
-  const material = new PointsMaterial({
-    color,
-    size: 0.06,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-    toneMapped: false,
-  });
-  const points = new Points(geometry, material);
-  points.renderOrder = -1;
-  return points;
+  for (let lat = -60; lat <= 60; lat += GRATICULE_STEP) {
+    for (let lon = -180; lon < 180; lon += GRATICULE_RESOLUTION) {
+      push(lon, lat);
+      push(lon + GRATICULE_RESOLUTION, lat);
+    }
+  }
+  return new Float32Array(out);
 }
 
 function makeGlobeMaterial(): ShaderMaterial {
-  const [br, bg, bb] = tokenRgb01('--terrain', '#1c2238');
-  const [cr, cg, cb] = tokenRgb01('--cyan', '#4fd1c5');
+  const [br, bg, bb] = tokenRgb01('--sea', '#d6d2c4');
+  const [lr, lg, lb] = tokenRgb01('--ink', '#17140f');
   return new ShaderMaterial({
     uniforms: {
-      uBase: { value: new Vector3(br, bg, bb) },
-      uRim: { value: new Vector3(cr * 0.3, cg * 0.3, cb * 0.3) },
+      uBody: { value: new Vector3(br, bg, bb) },
+      uLimb: { value: new Vector3(lr, lg, lb) },
     },
-    vertexShader: RIM_VERTEX,
+    vertexShader: LIMB_VERTEX,
     fragmentShader: GLOBE_FRAGMENT,
-  });
-}
-
-function makeAtmosphereMaterial(): ShaderMaterial {
-  const [r, g, b] = tokenRgb01('--cyan', '#4fd1c5');
-  return new ShaderMaterial({
-    uniforms: {
-      uColor: { value: new Vector3(r, g, b) },
-      uIntensity: { value: 2.6 },
-    },
-    vertexShader: RIM_VERTEX,
-    fragmentShader: ATMOSPHERE_FRAGMENT,
-    side: BackSide,
-    blending: AdditiveBlending,
-    transparent: true,
-    depthWrite: false,
   });
 }
 
@@ -500,9 +466,9 @@ function GlobeScene({ target, guessPath, coastPositions, reduced }: SceneProps):
   const nodeRefs = useRef<(Mesh | null)[]>([]);
   const elapsed = useRef(0);
 
-  const gold = token('--gold', '#e8b34d');
-  const cyan = token('--cyan', '#4fd1c5');
-  const parchment = token('--parchment', '#f4f1ea');
+  const oxblood = token('--oxblood', '#7b2d26');
+  const brass = token('--brass', '#a8834a');
+  const ink = token('--ink', '#17140f');
 
   const targetVec = useMemo(
     () => new Vector3(...lonLatToVec3(target.lon, target.lat)),
@@ -546,16 +512,20 @@ function GlobeScene({ target, guessPath, coastPositions, reduced }: SceneProps):
   }, [guessPath, target]);
 
   const coast = useMemo(
-    () => (coastPositions ? makeLineSegments(coastPositions, parchment, 0.5) : null),
-    [coastPositions, parchment],
+    () => (coastPositions ? makeLineSegments(coastPositions, ink, 0.62) : null),
+    [coastPositions, ink],
   );
   const trail = useMemo(
-    () => (trailPositions ? makeTrail(trailPositions, cyan) : null),
-    [trailPositions, cyan],
+    () => (trailPositions ? makeTrail(trailPositions, ink) : null),
+    [trailPositions, ink],
   );
-  const stars = useMemo(() => makeStars(parchment), [parchment]);
+  // Faint on purpose: the graticule is the instrument the map is drawn on, and it must
+  // never compete with the coastlines it sits under.
+  const graticule = useMemo(
+    () => makeLineSegments(buildGraticulePositions(), brass, 0.3),
+    [brass],
+  );
   const globeMaterial = useMemo(makeGlobeMaterial, []);
-  const atmosphereMaterial = useMemo(makeAtmosphereMaterial, []);
 
   const trailVertices = trailPositions ? trailPositions.length / 3 : 0;
 
@@ -565,11 +535,10 @@ function GlobeScene({ target, guessPath, coastPositions, reduced }: SceneProps):
     () => () => {
       disposeRenderable(coast);
       disposeRenderable(trail);
-      disposeRenderable(stars);
+      disposeRenderable(graticule);
       globeMaterial.dispose();
-      atmosphereMaterial.dispose();
     },
-    [coast, trail, stars, globeMaterial, atmosphereMaterial],
+    [coast, trail, graticule, globeMaterial],
   );
 
   // Under reduced motion the loop runs on demand, so the outlines arriving late need
@@ -624,63 +593,55 @@ function GlobeScene({ target, guessPath, coastPositions, reduced }: SceneProps):
   });
 
   return (
-    <>
-      <primitive object={stars} dispose={null} />
-
-      {/* Outside the spinning group: a sphere is rotation-invariant, so spinning it
-          would only cost transform updates. */}
+    <group ref={globeRef}>
       <mesh>
-        <sphereGeometry args={[ATMOSPHERE_RADIUS, 48, 32]} />
-        <primitive object={atmosphereMaterial} attach="material" dispose={null} />
+        <sphereGeometry args={[GLOBE_RADIUS, 128, 80]} />
+        <primitive object={globeMaterial} attach="material" dispose={null} />
       </mesh>
 
-      <group ref={globeRef}>
-        <mesh>
-          <sphereGeometry args={[GLOBE_RADIUS, 128, 80]} />
-          <primitive object={globeMaterial} attach="material" dispose={null} />
+      <primitive object={graticule} dispose={null} />
+      {coast && <primitive object={coast} dispose={null} />}
+      {trail && <primitive object={trail} dispose={null} />}
+
+      {nodes.map((node, i) => (
+        <mesh
+          key={node.key}
+          ref={(m) => {
+            nodeRefs.current[i] = m;
+          }}
+          position={node.position}
+          visible={false}
+        >
+          <sphereGeometry args={[0.011, 10, 8]} />
+          <meshBasicMaterial color={ink} transparent opacity={0.72} depthWrite={false} toneMapped={false} />
         </mesh>
+      ))}
 
-        {coast && <primitive object={coast} dispose={null} />}
-        {trail && <primitive object={trail} dispose={null} />}
-
-        {nodes.map((node, i) => (
-          <mesh
-            key={node.key}
-            ref={(m) => {
-              nodeRefs.current[i] = m;
-            }}
-            position={node.position}
-            visible={false}
-          >
-            <sphereGeometry args={[0.011, 10, 8]} />
-            <meshBasicMaterial color={cyan} transparent opacity={0.85} depthWrite={false} toneMapped={false} />
-          </mesh>
-        ))}
-
-        <group ref={pinRef} quaternion={pinQuaternion} visible={false}>
-          <mesh position={[0, PIN_STEM / 2, 0]}>
-            <cylinderGeometry args={[0.004, 0.004, PIN_STEM, 8]} />
-            <meshBasicMaterial color={gold} toneMapped={false} />
-          </mesh>
-          <mesh position={[0, PIN_STEM, 0]}>
-            <sphereGeometry args={[0.02, 16, 12]} />
-            <meshBasicMaterial color={gold} toneMapped={false} />
-          </mesh>
-          <mesh ref={haloRef} position={[0, PIN_STEM, 0]}>
-            <sphereGeometry args={[0.055, 16, 12]} />
-            <meshBasicMaterial
-              ref={haloMaterialRef}
-              color={gold}
-              transparent
-              opacity={0.3}
-              blending={AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
-            />
-          </mesh>
-        </group>
+      <group ref={pinRef} quaternion={pinQuaternion} visible={false}>
+        <mesh position={[0, PIN_STEM / 2, 0]}>
+          <cylinderGeometry args={[0.004, 0.004, PIN_STEM, 8]} />
+          <meshBasicMaterial color={ink} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, PIN_STEM, 0]}>
+          <sphereGeometry args={[0.02, 16, 12]} />
+          <meshBasicMaterial color={oxblood} toneMapped={false} />
+        </mesh>
+        {/* The old glow, redrawn as an engraved target circle: a hairline ring lying in
+            the tangent plane at the pin's foot. It breathes rather than blooms. The
+            ring's own hole clears the stem, so nothing z-fights the surface below. */}
+        <mesh ref={haloRef} position={[0, 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.05, 0.056, 64]} />
+          <meshBasicMaterial
+            ref={haloMaterialRef}
+            color={oxblood}
+            transparent
+            opacity={0.3}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
       </group>
-    </>
+    </group>
   );
 }
 
@@ -704,6 +665,23 @@ const plural = (n: number): string => (n === 1 ? 'guess' : 'guesses');
 
 function hideBrokenFlag(event: SyntheticEvent<HTMLImageElement>): void {
   event.currentTarget.style.display = 'none';
+}
+
+/**
+ * The outcome, set as an engraved caption.
+ *
+ * The same words the dialog's accessible name uses, but broken apart so the numeral can
+ * be set in mono tabular figures — a printed sheet never mixes a count into running
+ * text without changing the face.
+ */
+function OutcomeLine({ solved, guessCount }: { solved: boolean; guessCount: number }): JSX.Element {
+  if (guessCount === 0) return <>Revealed</>;
+  return (
+    <>
+      {solved ? 'Solved in' : 'Revealed after'}{' '}
+      <span className="tabular font-mono text-ink">{guessCount}</span> {plural(guessCount)}
+    </>
+  );
 }
 
 function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }: RevealProps): JSX.Element {
@@ -784,19 +762,19 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
       role="dialog"
       aria-modal="true"
       aria-label={`${target.name} — ${outcome}`}
-      className={`ease-swift fixed inset-0 z-50 bg-space transition-opacity duration-500 ${
+      className={`ease-swift fixed inset-0 z-50 bg-paper transition-opacity duration-500 ${
         entered ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: NEBULA }} />
-
       <div aria-hidden="true" className="absolute inset-0">
         <Canvas
           camera={{ position: [0, 0, CAM_START_Z], fov: 38, near: 0.1, far: 120 }}
           dpr={[1, 2]}
           gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
           frameloop={reduced ? 'demand' : 'always'}
-          onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
+          // The plate is printed on the same stock as the page around it, so the clear
+          // colour is the paper token rather than a transparent hole over black.
+          onCreated={({ gl }) => gl.setClearColor(token('--paper', '#f2ede1'), 1)}
         >
           <GlobeScene
             target={target}
@@ -818,31 +796,38 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
           className="absolute inset-x-0 bottom-0 flex justify-center"
           style={{ padding: SAFE_PADDING }}
         >
-          <div className="hud-panel animate-rise-in w-full max-w-lg rounded-2xl p-5 sm:p-6">
+          <div className="sheet animate-rise-in w-full max-w-lg p-5 sm:p-6">
             <div className="flex items-center gap-4">
+              {/* Mounted rather than merely bordered: a hairline frame with a margin of
+                  paper inside it, the way a plate is set into a page. */}
               <img
                 src={flagUrl(target.cca2)}
                 alt=""
                 onError={hideBrokenFlag}
                 decoding="async"
-                className="h-11 w-auto shrink-0 rounded border border-hairline shadow-hud"
+                className="h-12 w-auto shrink-0 border border-rule bg-paper p-1 shadow-sheet"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-hud tabular font-mono uppercase text-gold">{outcome}</p>
-                <h2 className="font-display truncate text-2xl leading-tight text-parchment sm:text-3xl">
+                <p className="label text-oxblood">
+                  <OutcomeLine solved={solved} guessCount={guessCount} />
+                </p>
+                {/* Letterspaced capitals are what make Fraunces read as engraved rather
+                    than as a book face, and they are why this wraps instead of clipping:
+                    a truncated country name is the one thing the reveal cannot do. */}
+                <h2 className="mt-1.5 text-balance font-display text-xl uppercase leading-tight tracking-[0.14em] text-ink sm:text-2xl">
                   {target.name}
                 </h2>
-                {subtitle && <p className="mt-0.5 truncate text-xs text-muted">{subtitle}</p>}
+                {subtitle && <p className="label mt-2 truncate">{subtitle}</p>}
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-hairline pt-4">
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-5 border-t border-rule pt-4">
               {children}
               <button
                 ref={primaryRef}
                 type="button"
                 onClick={onDone}
-                className="ease-swift inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-medium text-space transition-colors duration-200 hover:bg-gold/90"
+                className="ease-swift -my-2 inline-flex items-center gap-2 border-b border-oxblood/60 py-2 text-sm font-medium text-oxblood transition-colors duration-150 hover:border-oxblood"
               >
                 Continue
                 <ArrowRight aria-hidden="true" className="h-4 w-4" />

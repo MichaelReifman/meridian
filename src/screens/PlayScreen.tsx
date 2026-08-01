@@ -156,8 +156,8 @@ export function PlayScreen({ reveal: Reveal }: { reveal: RevealComponent }): JSX
 
   if (!round || !target) {
     return (
-      <main className="flex h-full w-full items-center justify-center overflow-hidden bg-space">
-        <p className="text-sm text-muted">Preparing the chart…</p>
+      <main className="flex h-full w-full items-center justify-center overflow-hidden bg-paper">
+        <p className="text-sm text-graphite">Preparing the chart…</p>
       </main>
     );
   }
@@ -168,7 +168,7 @@ export function PlayScreen({ reveal: Reveal }: { reveal: RevealComponent }): JSX
   const kindLabel = round.puzzle.kind === 'daily' ? 'Daily Challenge' : 'Practice';
 
   return (
-    <main className="relative h-full w-full overflow-hidden bg-space">
+    <main className="relative h-full w-full overflow-hidden bg-paper">
       <h1 className="sr-only">
         Meridian — {MODE_LABEL[round.puzzle.mode]} {kindLabel}
       </h1>
@@ -284,18 +284,18 @@ export function PlayScreen({ reveal: Reveal }: { reveal: RevealComponent }): JSX
 }
 
 /**
- * A secondary action in the reveal's button row. Matches the primary "Continue" pill in
- * size so the row reads as one control group, and stays outline-only so the gold pill
- * remains the obvious default.
+ * A secondary action in the reveal's row: a word with a rule under it, which is the only
+ * button shape printed matter has. The row therefore reads as a line of type rather than
+ * a strip of controls, and hierarchy is carried by wording and order, not by fill.
+ *
+ * `py-2 -my-2` buys a comfortable tap target without pushing the rule away from the word.
  */
 function RevealAction({ onClick, children }: { onClick(): void; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      /* Literal rgba rather than `bg-parchment/10`: the palette is defined as bare
-         `var(--x)` values, which Tailwind cannot derive alpha variants from. */
-      className="ease-swift inline-flex items-center gap-2 rounded-full border border-hairline px-4 py-2.5 text-sm text-parchment transition-colors duration-200 hover:bg-parchment/10"
+      className="action -my-2 inline-flex items-center gap-2 py-2 text-sm"
     >
       {children}
     </button>

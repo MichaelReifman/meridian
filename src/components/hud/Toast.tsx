@@ -1,5 +1,6 @@
 /**
- * Transient bottom-centre confirmation ("Copied to clipboard").
+ * Transient bottom-centre confirmation ("Copied to clipboard"), set as a small printed
+ * slip laid on the chart.
  *
  * The owner keeps the message in state and clears it in `onDone`; this component only
  * decides when "brief" is up.
@@ -37,7 +38,7 @@ export function Toast({ message, onDone }: { message: string | null; onDone(): v
       {message !== null && (
         <div
           key={message}
-          className="hud-panel animate-rise-in max-w-[80vw] rounded-full px-4 py-2 text-center text-sm text-parchment"
+          className="sheet animate-rise-in max-w-[80vw] px-4 py-2 text-center text-sm text-ink"
         >
           {message}
         </div>

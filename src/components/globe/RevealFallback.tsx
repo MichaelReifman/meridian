@@ -2,9 +2,11 @@
  * The reveal without WebGL (PRD §5).
  *
  * Rendered when a GL context cannot be created, and also when anything inside the
- * globe's canvas throws. Deliberately not an apology: the same cosmic ground, the
- * same typography and the same information as the globe overlay, composed as one
- * card. The game must never dead-end on a device that cannot run three.js.
+ * globe's canvas throws. Deliberately not an apology: where the globe is a plate that
+ * moves, this is the same plate standing still — flag mounted inside a hairline frame,
+ * the name engraved beneath it, the particulars ruled off in a table. Same paper, same
+ * typography, same information. The game must never dead-end on a device that cannot
+ * run three.js.
  */
 
 import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
@@ -18,14 +20,6 @@ import type { GlobeRevealProps } from './GlobeReveal';
  */
 const PATH_LIMIT = 6;
 
-/**
- * Two wide, low-alpha washes standing in for the globe's nebula. Without them a flat
- * card on #0B0E1A reads as an error dialog rather than as the end of a round.
- */
-const NEBULA =
-  'radial-gradient(56rem 40rem at 16% 10%, rgba(123, 108, 246, 0.18), transparent 62%),' +
-  'radial-gradient(44rem 34rem at 86% 92%, rgba(79, 209, 197, 0.13), transparent 60%)';
-
 const SAFE_PADDING =
   'calc(var(--inset-t) + 1rem) calc(var(--inset-r) + 1rem)' +
   ' calc(var(--inset-b) + 1rem) calc(var(--inset-l) + 1rem)';
@@ -35,6 +29,23 @@ const plural = (n: number): string => (n === 1 ? 'guess' : 'guesses');
 /** A flag that 404s should leave the layout alone rather than show a broken icon. */
 function hideBrokenFlag(event: SyntheticEvent<HTMLImageElement>): void {
   event.currentTarget.style.display = 'none';
+}
+
+/**
+ * The outcome, set as an engraved caption.
+ *
+ * The same words the dialog's accessible name uses, split so the numeral can be set in
+ * mono tabular figures — a printed sheet changes face for a count rather than running
+ * it into the sentence.
+ */
+function OutcomeLine({ solved, guessCount }: { solved: boolean; guessCount: number }): JSX.Element {
+  if (guessCount === 0) return <>Revealed</>;
+  return (
+    <>
+      {solved ? 'Solved in' : 'Revealed after'}{' '}
+      <span className="tabular font-mono text-ink">{guessCount}</span> {plural(guessCount)}
+    </>
+  );
 }
 
 /**
@@ -111,65 +122,71 @@ export function RevealFallback({
       role="dialog"
       aria-modal="true"
       aria-label={`${target.name} — ${outcome}`}
-      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-space"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-paper"
       style={{ padding: SAFE_PADDING }}
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: NEBULA }} />
-
       {/* Announced the moment the round ends, independently of the visual card. */}
       <p role="status" className="sr-only">
         {announcement}
       </p>
 
-      <div ref={cardRef} className="hud-panel animate-rise-in relative w-full max-w-md rounded-2xl p-6 sm:p-8">
-        <div className="flex items-start gap-4">
-          <img
-            src={flagUrl(target.cca2)}
-            alt=""
-            onError={hideBrokenFlag}
-            decoding="async"
-            className="h-12 w-auto shrink-0 rounded-md border border-hairline shadow-hud"
-          />
-          <div className="min-w-0">
-            <p className="text-hud tabular font-mono uppercase text-gold">{outcome}</p>
-            <h2 className="font-display mt-1 truncate text-3xl leading-tight text-parchment">{target.name}</h2>
-          </div>
-        </div>
+      <div ref={cardRef} className="sheet animate-rise-in relative w-full max-w-md p-6 sm:p-8">
+        {/* The flag as the plate: mounted on a margin of paper inside a hairline frame,
+            centred over its caption. The frame lives on the image itself so a flag that
+            404s takes the whole mount with it rather than leaving an empty box. */}
+        <img
+          src={flagUrl(target.cca2)}
+          alt=""
+          onError={hideBrokenFlag}
+          decoding="async"
+          className="mx-auto h-20 w-auto border border-rule bg-paper p-1.5 shadow-sheet"
+        />
 
-        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-hairline pt-5">
+        <p className="label mt-6 text-center text-oxblood">
+          <OutcomeLine solved={solved} guessCount={guessCount} />
+        </p>
+        {/* Wraps rather than truncates: letterspaced capitals run wide, and a clipped
+            country name is the one thing the reveal cannot afford to do. */}
+        <h2 className="mt-2 text-balance text-center font-display text-2xl uppercase leading-tight tracking-[0.14em] text-ink">
+          {target.name}
+        </h2>
+
+        <div aria-hidden="true" className="rule-double mt-6" />
+
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5">
           <div className="min-w-0">
-            <dt className="text-hud font-mono uppercase text-muted">Capital</dt>
-            <dd className="mt-1 truncate text-sm text-parchment">{target.capital ?? '—'}</dd>
+            <dt className="label">Capital</dt>
+            <dd className="mt-2 truncate text-sm text-ink">{target.capital ?? '—'}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-hud font-mono uppercase text-muted">Region</dt>
-            <dd className="mt-1 truncate text-sm text-parchment">{place}</dd>
+            <dt className="label">Region</dt>
+            <dd className="mt-2 truncate text-sm text-ink">{place}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-hud font-mono uppercase text-muted">Guesses</dt>
-            <dd className="tabular mt-1 font-mono text-sm text-gold">{guessCount}</dd>
+            <dt className="label">Guesses</dt>
+            <dd className="tabular mt-2 font-mono text-sm text-oxblood">{guessCount}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-hud font-mono uppercase text-muted">Code</dt>
-            <dd className="tabular mt-1 font-mono text-sm text-parchment">{target.cca3}</dd>
+            <dt className="label">Code</dt>
+            <dd className="tabular mt-2 font-mono text-sm text-ink">{target.cca3}</dd>
           </div>
         </dl>
 
         {guessPath.length > 0 && (
-          <p className="mt-5 truncate text-xs text-muted" title={fullPath}>
+          <p className="mt-6 truncate border-t border-rule-soft pt-4 text-xs text-graphite" title={fullPath}>
             <span className="sr-only">Your guesses: </span>
             {guessPath.length > shown.length ? '… → ' : ''}
             {path}
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+        <div className="mt-7 flex flex-wrap items-center justify-end gap-5">
           {children}
           <button
             ref={primaryRef}
             type="button"
             onClick={onDone}
-            className="ease-swift inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-medium text-space transition-colors duration-200 hover:bg-gold/90"
+            className="ease-swift -my-2 inline-flex items-center gap-2 border-b border-oxblood/60 py-2 text-sm font-medium text-oxblood transition-colors duration-150 hover:border-oxblood"
           >
             Continue
             <ArrowRight aria-hidden="true" className="h-4 w-4" />
