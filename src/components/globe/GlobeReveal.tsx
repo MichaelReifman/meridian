@@ -17,6 +17,7 @@
 
 import {
   Component,
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -43,6 +44,8 @@ import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import type { FeatureCollection, GeometryObject, Position } from 'geojson';
 import { ArrowRight } from 'lucide-react';
+import { useTranslator } from '@/i18n';
+import type { TranslationKey } from '@/i18n/en';
 import { EARTH_RADIUS_KM, clamp01, distanceKm, lonLatToVec3, slerpLonLat } from '@/lib/geo';
 import { parseCssColor, toHexColor } from '@/lib/ramp';
 import { TOPOLOGY_URL, flagUrl } from '@/lib/paths';
@@ -674,30 +677,39 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-const plural = (n: number): string => (n === 1 ? 'guess' : 'guesses');
-
 function hideBrokenFlag(event: SyntheticEvent<HTMLImageElement>): void {
   event.currentTarget.style.display = 'none';
+}
+
+/** Which of the three outcome sentences this round earns. */
+function outcomeKey(solved: boolean, guessCount: number): TranslationKey {
+  if (guessCount === 0) return 'reveal.revealed';
+  return solved ? 'reveal.solvedIn' : 'reveal.revealedAfter';
 }
 
 /**
  * The outcome, set as an engraved caption.
  *
- * The same words the dialog's accessible name uses, but broken apart so the numeral can
- * be set in mono tabular figures — a printed sheet never mixes a count into running
- * text without changing the face.
+ * The same words the dialog's accessible name uses, but with the numeral lifted into
+ * mono tabular figures — a printed sheet never mixes a count into running text without
+ * changing the face. The sentence is never assembled from pieces: it arrives as one
+ * translated string and the `{count}` placeholder is filled with a node instead of with
+ * text, so the count lands wherever the language puts it.
  */
-function OutcomeLine({ solved, guessCount }: { solved: boolean; guessCount: number }): JSX.Element {
-  if (guessCount === 0) return <>Revealed</>;
+function OutcomeLine({ template, count }: { template: string; count: string }): JSX.Element {
+  const parts = template.split('{count}');
+  if (parts.length !== 2) return <>{template}</>;
   return (
     <>
-      {solved ? 'Solved in' : 'Revealed after'}{' '}
-      <span className="tabular font-mono text-ink">{guessCount}</span> {plural(guessCount)}
+      {parts[0]}
+      <span className="tabular font-mono text-ink">{count}</span>
+      {parts[1]}
     </>
   );
 }
 
 function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }: RevealProps): JSX.Element {
+  const t = useTranslator();
   const reduced = usePrefersReducedMotion();
   const coastPositions = useCoastlines();
   const [entered, setEntered] = useState(false);
@@ -706,14 +718,17 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
   const cardRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
-  const outcome = solved
-    ? `Solved in ${guessCount} ${plural(guessCount)}`
-    : guessCount > 0
-      ? `Revealed after ${guessCount} ${plural(guessCount)}`
-      : 'Revealed';
+  const sentence = outcomeKey(solved, guessCount);
+  const countText = t.num(guessCount);
+  const outcome = t(sentence, { count: countText });
+  const name = t.country(target);
   const place = target.subregion || target.region;
-  const subtitle = [target.capital, place].filter(Boolean).join(' · ');
-  const summary = `${target.name}. ${outcome}. Capital: ${target.capital ?? 'none listed'}. Region: ${place}.`;
+  /* Capital and region arrive from the source data in Latin script and are never
+     translated, so each is isolated below rather than joined into one string. */
+  const facts = [target.capital, place].filter((value): value is string => Boolean(value));
+  const summary = `${name}. ${outcome}. ${t('reveal.capital')}: ${
+    target.capital ?? t('common.none')
+  }. ${t('reveal.region')}: ${place}.`;
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -774,7 +789,7 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${target.name} — ${outcome}`}
+      aria-label={`${name} — ${outcome}`}
       className={`ease-swift fixed inset-0 z-50 bg-paper transition-opacity duration-500 ${
         entered ? 'opacity-100' : 'opacity-0'
       }`}
@@ -787,6 +802,8 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
         aria-hidden="true"
         className="pointer-events-none absolute z-10 border border-rule"
         style={{
+          /* Physical on purpose: a frame inset from all four page edges by the device's
+             own safe areas, and a notch does not move when the type changes direction. */
           top: 'calc(var(--inset-t) + 0.75rem)',
           right: 'calc(var(--inset-r) + 0.75rem)',
           bottom: 'calc(var(--inset-b) + 0.75rem)',
@@ -794,7 +811,9 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
         }}
       />
 
-      <div aria-hidden="true" className="absolute inset-0">
+      {/* Geography is not layout: the sphere is held left-to-right so a right-to-left
+          interface cannot mirror the world inside it. Only the card below mirrors. */}
+      <div aria-hidden="true" dir="ltr" className="absolute inset-0">
         <Canvas
           camera={{ position: [0, 0, CAM_START_Z], fov: 38, near: 0.1, far: 120 }}
           dpr={[1, 2]}
@@ -837,15 +856,28 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
               />
               <div className="min-w-0 flex-1">
                 <p className="label text-oxblood">
-                  <OutcomeLine solved={solved} guessCount={guessCount} />
+                  <OutcomeLine template={t(sentence)} count={countText} />
                 </p>
                 {/* Letterspaced capitals are what make Fraunces read as engraved rather
                     than as a book face, and they are why this wraps instead of clipping:
-                    a truncated country name is the one thing the reveal cannot do. */}
-                <h2 className="mt-1.5 text-balance font-display text-xl uppercase leading-tight tracking-[0.14em] text-ink sm:text-2xl">
-                  {target.name}
+                    a truncated country name is the one thing the reveal cannot do. Both
+                    are dropped in Arabic, where `uppercase` is inert and tracking severs
+                    the joining forms. */}
+                <h2 className="mt-1.5 text-balance font-display text-xl uppercase leading-tight tracking-[0.14em] text-ink rtl:tracking-normal rtl:normal-case sm:text-2xl">
+                  {name}
                 </h2>
-                {subtitle && <p className="label mt-2 truncate">{subtitle}</p>}
+                {facts.length > 0 && (
+                  <p className="label mt-2 truncate">
+                    {facts.map((fact, i) => (
+                      <Fragment key={fact}>
+                        {i > 0 && ' · '}
+                        {/* Without isolation the bidi algorithm reorders these around
+                            the separator: "Doha · Western Asia" comes out reversed. */}
+                        <bdi>{fact}</bdi>
+                      </Fragment>
+                    ))}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -857,8 +889,10 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
                 onClick={onDone}
                 className="ease-swift -my-2 inline-flex items-center gap-2 border-b border-oxblood/60 py-2 text-sm font-medium text-oxblood transition-colors duration-150 hover:border-oxblood"
               >
-                Continue
-                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                {t('reveal.continue')}
+                {/* An arrow of travel, not a bearing: it points the way the interface
+                    reads, so it reverses in a right-to-left language. */}
+                <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:-scale-x-100" />
               </button>
             </div>
           </div>

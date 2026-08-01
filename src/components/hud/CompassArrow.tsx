@@ -8,25 +8,31 @@
  * Drawn as a bearing indicator off an instrument face: an engraved dial that stays put and
  * a brass needle that swings against it. Two layers, because a dial whose tick marks
  * rotate with the needle is not a compass.
+ *
+ * The dial is the one part of the HUD that does not mirror. A bearing of 40° is 40° in
+ * every language: the panel around the instrument flips with the interface, the instrument
+ * itself is held to `dir="ltr"` and its rotation is never negated.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { formatKm } from '@/lib/geo';
 
-/** Compass points spelled out, because "NE" is read aloud as two letters. */
-const COMPASS_WORDS: Record<string, string> = {
-  N: 'north',
-  NE: 'north-east',
-  E: 'east',
-  SE: 'south-east',
-  S: 'south',
-  SW: 'south-west',
-  W: 'west',
-  NW: 'north-west',
-};
+import { useTranslator, type Translator } from '@/i18n';
 
 /** Eight points of the rose; the four cardinals are engraved longer and in ink. */
 const TICK_DEGREES = [0, 45, 90, 135, 180, 225, 270, 315];
+
+/**
+ * Kilometres in the player's own numerals.
+ *
+ * `lib/geo.formatKm` is pinned to en-US, which would print Latin digits and a comma
+ * inside an Arabic readout. The rounding rule is reproduced here — coarse above 100 km,
+ * one decimal below it — and the grouping and digit shapes are left to Intl.
+ */
+function formatKm(t: Translator, km: number): string {
+  const digits = km >= 100 ? 0 : 1;
+  const rounded = digits === 0 ? Math.round(km) : Math.round(km * 10) / 10;
+  return t.num(rounded, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
 
 function usePrefersReducedMotion(): boolean {
   const query = '(prefers-reduced-motion: reduce)';
@@ -55,6 +61,7 @@ export function CompassArrow({
   distanceKm: number;
   compass: string;
 }) {
+  const t = useTranslator();
   const reducedMotion = usePrefersReducedMotion();
 
   /**
@@ -71,14 +78,18 @@ export function CompassArrow({
     setAngle(unwrapped.current);
   }, [bearingDeg]);
 
-  const words = COMPASS_WORDS[compass] ?? compass;
-  const label = `Target is ${formatKm(distanceKm)} kilometres away, to the ${words}.`;
+  const km = formatKm(t, distanceKm);
+  const label = t('play.a11y.bearing', { distance: km, compass });
+
+  /* Safe-area insets are physical — a notch stays on the side of the device it is on,
+     whichever way the type runs — so the logical edge has to pick the matching one. */
+  const insetEnd = t.dir === 'rtl' ? 'var(--inset-l)' : 'var(--inset-r)';
 
   return (
     <div
       className="pointer-events-none fixed z-30"
       style={{
-        right: 'calc(var(--inset-r) + 0.75rem)',
+        insetInlineEnd: `calc(${insetEnd} + 0.75rem)`,
         bottom: 'calc(var(--inset-b) + 0.75rem)',
       }}
       /* The readout changes on every guess and is the primary feedback, so it is worth
@@ -86,7 +97,9 @@ export function CompassArrow({
       aria-live="polite"
     >
       <div role="img" aria-label={label} className="sheet flex items-center gap-2.5 px-3 py-2">
-        <span className="relative block h-9 w-9 shrink-0">
+        {/* Geography, not layout: the instrument is held left-to-right so neither the rose
+            nor the needle can be mirrored by the interface around them. */}
+        <span dir="ltr" className="relative block h-9 w-9 shrink-0">
           {/* The fixed face: ring and rose. Never rotates, so the needle reads against it. */}
           <svg
             viewBox="0 0 36 36"
@@ -110,7 +123,9 @@ export function CompassArrow({
           </svg>
 
           {/* Rotating an HTML wrapper rather than the <g> inside: `transform-box` support
-              for SVG children is uneven, while HTML transform-origin: 50% 50% is not. */}
+              for SVG children is uneven, while HTML transform-origin: 50% 50% is not.
+              The angle is a real-world bearing and is used exactly as measured — never
+              negated, whatever direction the interface runs in. */}
           <span
             className="absolute inset-0 block"
             style={{
@@ -141,12 +156,16 @@ export function CompassArrow({
           </span>
         </span>
 
-        <div className="border-l border-rule-soft pl-2.5 leading-tight">
+        <div className="border-s border-rule-soft ps-2.5 leading-tight">
           <p className="font-mono tabular text-lg text-ink">
-            {formatKm(distanceKm)}
-            <span className="label ml-1">km</span>
+            {km}
+            <span className="label ms-1">{t('play.km')}</span>
           </p>
-          <p className="label mt-1.5 border-t border-rule-soft pt-1.5 text-ink">{compass}</p>
+          {/* The compass point arrives as a Latin abbreviation the data never localises,
+              so it is isolated from the surrounding run. */}
+          <p className="label mt-1.5 border-t border-rule-soft pt-1.5 text-ink">
+            <bdi>{compass}</bdi>
+          </p>
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ import { create } from 'zustand';
 
 import type { GameMode, PuzzleKind } from '@/types/game';
 
-export type Screen = 'menu' | 'play' | 'stats' | 'howto';
+export type Screen = 'menu' | 'play' | 'stats' | 'howto' | 'settings';
 
 export interface UiState {
   readonly screen: Screen;

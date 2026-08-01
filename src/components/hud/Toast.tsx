@@ -3,7 +3,8 @@
  * slip laid on the chart.
  *
  * The owner keeps the message in state and clears it in `onDone`; this component only
- * decides when "brief" is up.
+ * decides when "brief" is up — and the message arrives already translated, since only
+ * the caller knows which outcome it is reporting.
  */
 
 import { useEffect, useRef } from 'react';
@@ -32,7 +33,10 @@ export function Toast({ message, onDone }: { message: string | null; onDone(): v
          announces mutations *inside* an existing region, so one that appears together
          with its text is frequently missed. */
       aria-live="polite"
-      className="pointer-events-none fixed left-1/2 z-50 -translate-x-1/2"
+      /* Centred by a full-width flex row rather than by `left-1/2` and a translate: a
+         physical offset paired with a physical transform is the one centring idiom that
+         does not survive mirroring. */
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center"
       style={{ bottom: 'calc(var(--inset-b) + 1.25rem)' }}
     >
       {message !== null && (

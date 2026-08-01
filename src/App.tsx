@@ -1,7 +1,7 @@
 /**
  * The shell.
  *
- * Meridian is a single surface, not a site: there is one map, one round, and four
+ * Meridian is a single surface, not a site: there is one map, one round, and five
  * mutually exclusive views over them. A router would add history entries the game has
  * no meaning for (a back button that half-rewinds a round is worse than none), so the
  * screen is simply a field in the UI store.
@@ -19,6 +19,7 @@ import { UpdatePrompt } from '@/components/UpdatePrompt';
 import { HowToScreen } from '@/screens/HowToScreen';
 import { MenuScreen } from '@/screens/MenuScreen';
 import { PlayScreen } from '@/screens/PlayScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 import { StatsScreen } from '@/screens/StatsScreen';
 import { useGameStore } from '@/store/gameStore';
 import { useUiStore } from '@/store/uiStore';
@@ -82,6 +83,8 @@ export function App(): JSX.Element {
         <StatsScreen />
       ) : screen === 'howto' ? (
         <HowToScreen />
+      ) : screen === 'settings' ? (
+        <SettingsScreen />
       ) : (
         <MenuScreen />
       )}

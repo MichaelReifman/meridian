@@ -20,6 +20,8 @@ import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, X } from 'lucide-react';
 
+import { useTranslator } from '@/i18n';
+
 /**
  * How often to re-check for a new build while the app stays open.
  *
@@ -38,6 +40,8 @@ const OFFLINE_NOTICE_MS = 3200;
 const RELOAD_FALLBACK_MS = 1200;
 
 export function UpdatePrompt(): JSX.Element | null {
+  const t = useTranslator();
+
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -86,13 +90,15 @@ export function UpdatePrompt(): JSX.Element | null {
       role="status"
       aria-live="polite"
       /* Sits above the transient Toast's bottom-centre slot so a "Copied" confirmation
-         from the reveal cannot land underneath this one. */
-      className="pointer-events-none fixed left-1/2 z-50 flex -translate-x-1/2 justify-center px-4"
+         from the reveal cannot land underneath this one. Centred by a full-width flex
+         row: `left-1/2` with a translate is the one centring idiom that would not
+         survive mirroring. */
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
       style={{ bottom: 'calc(var(--inset-b) + 4.75rem)' }}
     >
       {needRefresh ? (
-        <div className="sheet animate-rise-in pointer-events-auto flex max-w-[92vw] items-center gap-3 py-2 pl-4 pr-2">
-          <span className="text-sm text-ink">A new version is ready.</span>
+        <div className="sheet animate-rise-in pointer-events-auto flex max-w-[92vw] items-center gap-3 py-2 pe-2 ps-4">
+          <span className="text-sm text-ink">{t('sw.updateReady')}</span>
           <button
             type="button"
             disabled={updating}
@@ -113,11 +119,11 @@ export function UpdatePrompt(): JSX.Element | null {
             className="ease-swift inline-flex shrink-0 items-center gap-1.5 rounded-sheet border border-oxblood/45 bg-paper px-3 py-1.5 text-sm text-oxblood transition-colors duration-200 hover:border-oxblood hover:bg-oxblood/5 disabled:opacity-60"
           >
             <Download aria-hidden="true" size={15} strokeWidth={2} />
-            {updating ? 'Updating…' : 'Reload'}
+            {updating ? t('sw.updating') : t('sw.reload')}
           </button>
           <button
             type="button"
-            aria-label="Dismiss update notice"
+            aria-label={t('sw.dismiss')}
             onClick={() => setNeedRefresh(false)}
             className="ease-swift flex h-8 w-8 shrink-0 items-center justify-center rounded-sheet text-graphite transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
           >
@@ -126,7 +132,7 @@ export function UpdatePrompt(): JSX.Element | null {
         </div>
       ) : (
         <div className="sheet animate-rise-in max-w-[80vw] px-4 py-2 text-center text-sm text-ink">
-          Ready to play offline.
+          {t('sw.offlineReady')}
         </div>
       )}
     </div>

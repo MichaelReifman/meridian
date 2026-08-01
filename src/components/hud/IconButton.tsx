@@ -4,6 +4,11 @@
  *
  * Icons are passed in as children (lucide-react) and are always decorative — the name
  * comes from `label`, which also becomes the pointer tooltip.
+ *
+ * The key itself is a square and mirrors for free. Flipping the glyph is deliberately
+ * *not* done here: only the caller knows whether its icon means a direction of travel
+ * (which reverses in a right-to-left interface) or a bearing, a flag or a globe (which
+ * never do), so `rtl:-scale-x-100` belongs on the icon that is passed in.
  */
 
 import type { ReactNode } from 'react';

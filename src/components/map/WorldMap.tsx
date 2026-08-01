@@ -27,6 +27,11 @@
  * · Colour is never the only proximity signal — the HUD's compass arrow and kilometre
  *   readout carry the same information independently, and the ramp descends in luminance
  *   so it survives greyscale.
+ *
+ * · The chart itself is held to `dir="ltr"`. Geography is not layout: a right-to-left
+ *   interface mirrors the controls around the map, but flipping the world would put the
+ *   Atlantic east of Africa. The skip control, the zoom cluster and the safe-area insets
+ *   all mirror; everything inside the projection does not.
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -49,6 +54,7 @@ import {
 import { Maximize2, Minus, Plus } from 'lucide-react';
 
 import { COUNTRIES, INERT_NAMES } from '@/data/countries.generated';
+import { useTranslator } from '@/i18n';
 import type { Country } from '@/types/game';
 import type { DistanceRing } from '@/lib/geo';
 import { quantizeBands, ringConsistency, ringTolerance } from '@/lib/geo';
@@ -167,6 +173,7 @@ export function WorldMap({
   disabled,
   onGuess,
 }: WorldMapProps) {
+  const t = useTranslator();
   const { byId, isPlayable } = useCountryLookup();
   const containerRef = useRef<HTMLDivElement>(null);
   const skipTargetRef = useRef<HTMLSpanElement>(null);
@@ -392,6 +399,10 @@ export function WorldMap({
 
   const enabled = !disabled;
 
+  /* Safe-area insets are physical — a notch stays on the side of the device it is on,
+     whichever way the type runs — so the logical edge has to pick the matching one. */
+  const insetStart = t.dir === 'rtl' ? 'var(--inset-r)' : 'var(--inset-l)';
+
   return (
     <div
       ref={containerRef}
@@ -406,177 +417,193 @@ export function WorldMap({
       <button
         type="button"
         onClick={skipMap}
-        className="sheet absolute left-3 top-3 z-30 -translate-y-[200%] px-3 py-2 text-sm text-ink shadow-lifted transition-transform duration-200 ease-swift focus-visible:translate-y-0"
+        className="sheet absolute start-3 top-3 z-30 -translate-y-[200%] px-3 py-2 text-sm text-ink shadow-lifted transition-transform duration-200 ease-swift focus-visible:translate-y-0"
       >
-        Skip the map
+        {t('play.skipMap')}
       </button>
 
       <div
-        className="pointer-events-none absolute bottom-0 left-0 z-20 flex"
+        className="pointer-events-none absolute bottom-0 start-0 z-20 flex"
         style={{
           paddingBottom: 'calc(1rem + var(--inset-b))',
-          paddingLeft: 'calc(1rem + var(--inset-l))',
+          paddingInlineStart: `calc(1rem + ${insetStart})`,
         }}
       >
         {/* An instrument face laid on the chart: square-cut, three keys stacked behind
             one hairline, dividers rather than gaps. */}
         <div className="sheet pointer-events-auto flex flex-col overflow-hidden rounded-none shadow-lifted">
-          <MapControlButton label="Zoom in" onClick={() => nudgeZoom(ZOOM_STEP)}>
+          <MapControlButton label={t('play.zoomIn')} onClick={() => nudgeZoom(ZOOM_STEP)}>
             <Plus size={16} strokeWidth={1.75} />
           </MapControlButton>
           <div aria-hidden="true" className="h-px bg-rule" />
-          <MapControlButton label="Zoom out" onClick={() => nudgeZoom(1 / ZOOM_STEP)}>
+          <MapControlButton label={t('play.zoomOut')} onClick={() => nudgeZoom(1 / ZOOM_STEP)}>
             <Minus size={16} strokeWidth={1.75} />
           </MapControlButton>
           <div aria-hidden="true" className="h-px bg-rule" />
-          <MapControlButton label="Reset map view" onClick={resetView}>
+          {/* The shell forwards its own "Recentre the map" key to this control by
+              matching this accessible name, so both sides read it from `play.resetView`
+              rather than from a literal that only agrees in English. */}
+          <MapControlButton label={t('play.resetView')} onClick={resetView}>
             <Maximize2 size={15} strokeWidth={1.75} />
           </MapControlButton>
         </div>
       </div>
 
       {size && (
-        <ComposableMap
-          /* Remount on resize. react-simple-maps caches each feature's projected path
-             string when it first parses the topology and never re-derives it when the
-             projection changes, so a rotated phone keeps drawing the world at the old
-             scale — at 375px wide the world spanned 485px and could not be seen whole.
-             Rebuilding is the only reliable way to re-project; the debounce above keeps
-             it to once per settled resize, and the topology is already cached. */
-          key={`${size.w}x${size.h}`}
-          projection="geoEqualEarth"
-          projectionConfig={projectionConfig}
-          width={size.w}
-          height={size.h}
-          role="group"
-          aria-label="World map — choose a country"
-          className="block h-full w-full"
-        >
-          <ZoomableGroup
-            center={view.center}
-            zoom={view.zoom}
-            minZoom={MIN_ZOOM}
-            maxZoom={MAX_ZOOM}
-            /* Keeps the world inside the viewport: without it the map can be flung into
-               empty space and the player has to hunt for it. */
-            translateExtent={[
-              [0, 0],
-              [size.w, size.h],
-            ]}
-            filterZoomEvent={allowZoomGesture}
-            onMoveEnd={handleMoveEnd}
+        /* The one element in the app that is pinned left-to-right. `dir` is inherited,
+           so without this the projection would sit in a right-to-left context — and the
+           chart, its controls and any future in-map type would be free to mirror. */
+        <div dir="ltr" className="h-full w-full">
+          <ComposableMap
+            /* Remount on resize. react-simple-maps caches each feature's projected path
+               string when it first parses the topology and never re-derives it when the
+               projection changes, so a rotated phone keeps drawing the world at the old
+               scale — at 375px wide the world spanned 485px and could not be seen whole.
+               Rebuilding is the only reliable way to re-project; the debounce above keeps
+               it to once per settled resize, and the topology is already cached. */
+            key={`${size.w}x${size.h}`}
+            projection="geoEqualEarth"
+            projectionConfig={projectionConfig}
+            width={size.w}
+            height={size.h}
+            role="group"
+            aria-label={t('play.mapLabel')}
+            className="block h-full w-full"
           >
-            {/* The ocean. Deliberately darker than either land tone: on light stock the
-                water has to be the heavier ink or the chart reads inside out. */}
-            <Sphere
-              id="mrd-sphere"
-              fill="var(--sea)"
-              stroke="var(--coast)"
-              strokeWidth={0.75}
-              vectorEffect="non-scaling-stroke"
-              pointerEvents="none"
-            />
-            <Graticule
-              step={[20, 20]}
-              fill="none"
-              stroke={GRATICULE_STROKE}
-              strokeWidth={0.5}
-              vectorEffect="non-scaling-stroke"
-              pointerEvents="none"
-            />
+            <ZoomableGroup
+              center={view.center}
+              zoom={view.zoom}
+              minZoom={MIN_ZOOM}
+              maxZoom={MAX_ZOOM}
+              /* Keeps the world inside the viewport: without it the map can be flung into
+                 empty space and the player has to hunt for it. */
+              translateExtent={[
+                [0, 0],
+                [size.w, size.h],
+              ]}
+              filterZoomEvent={allowZoomGesture}
+              onMoveEnd={handleMoveEnd}
+            >
+              {/* The ocean. Deliberately darker than either land tone: on light stock the
+                  water has to be the heavier ink or the chart reads inside out. */}
+              <Sphere
+                id="mrd-sphere"
+                fill="var(--sea)"
+                stroke="var(--coast)"
+                strokeWidth={0.75}
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+              />
+              <Graticule
+                step={[20, 20]}
+                fill="none"
+                stroke={GRATICULE_STROKE}
+                strokeWidth={0.5}
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+              />
 
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) => {
-                const features = geographies as readonly PreparedGeography[];
-                const last = lastGuessId
-                  ? features.find((g) => toCountryId(g.id) === lastGuessId)
-                  : undefined;
+              <Geographies geography={GEO_URL}>
+                {({ geographies }) => {
+                  const features = geographies as readonly PreparedGeography[];
+                  const last = lastGuessId
+                    ? features.find((g) => toCountryId(g.id) === lastGuessId)
+                    : undefined;
 
-                return (
-                  <>
-                    {features.map((geography) => {
-                      const id = toCountryId(geography.id);
-                      const name = geography.properties?.name ?? '';
-                      /* Three ways to be inert: an id the game does not play, a Natural
-                         Earth name flagged as disputed/non-state, or no id at all. */
-                      const country =
-                        isPlayable(geography.id) && !INERT_NAMES.has(name)
-                          ? byId.get(id)
-                          : undefined;
+                  return (
+                    <>
+                      {features.map((geography) => {
+                        const id = toCountryId(geography.id);
+                        const name = geography.properties?.name ?? '';
+                        /* Three ways to be inert: an id the game does not play, a Natural
+                           Earth name flagged as disputed/non-state, or no id at all. */
+                        const country =
+                          isPlayable(geography.id) && !INERT_NAMES.has(name)
+                            ? byId.get(id)
+                            : undefined;
 
-                      if (!country) {
+                        if (!country) {
+                          return (
+                            <CountryPath
+                              key={geography.rsmKey}
+                              geography={geography}
+                              countryId=""
+                              label={null}
+                              enabled={false}
+                              fill={INERT_FILL}
+                              stroke={INERT_STROKE}
+                              strokeWidth={0.5}
+                              onPointerGuess={handlePointerGuess}
+                              onKeyGuess={handleKeyGuess}
+                            />
+                          );
+                        }
+
+                        const guessed = guessedIds.has(country.id);
+                        const isLast = country.id === lastGuessId;
+                        /* The spoken name of a country is the player's own name for it,
+                           and "already guessed" is one key with the name substituted in —
+                           the two halves swap order between languages. */
+                        const localised = t.country(country);
                         return (
                           <CountryPath
                             key={geography.rsmKey}
                             geography={geography}
-                            countryId=""
-                            label={null}
-                            enabled={false}
-                            fill={INERT_FILL}
-                            stroke={INERT_STROKE}
-                            strokeWidth={0.5}
+                            countryId={country.id}
+                            label={
+                              guessed
+                                ? t('play.a11y.alreadyGuessed', { country: localised })
+                                : localised
+                            }
+                            enabled={enabled}
+                            fill={fills.get(country.id) ?? LAND_FILL}
+                            stroke={
+                              isLast
+                                ? LAST_GUESS_STROKE
+                                : guessed
+                                  ? GUESSED_STROKE
+                                  : COAST_STROKE
+                            }
+                            strokeWidth={isLast ? 1.6 : guessed ? 1.1 : 0.5}
                             onPointerGuess={handlePointerGuess}
                             onKeyGuess={handleKeyGuess}
                           />
                         );
-                      }
+                      })}
 
-                      const guessed = guessedIds.has(country.id);
-                      const isLast = country.id === lastGuessId;
-                      return (
-                        <CountryPath
-                          key={geography.rsmKey}
-                          geography={geography}
-                          countryId={country.id}
-                          label={guessed ? `${country.name}, already guessed` : country.name}
-                          enabled={enabled}
-                          fill={fills.get(country.id) ?? LAND_FILL}
-                          stroke={
-                            isLast
-                              ? LAST_GUESS_STROKE
-                              : guessed
-                                ? GUESSED_STROKE
-                                : COAST_STROKE
-                          }
-                          strokeWidth={isLast ? 1.6 : guessed ? 1.1 : 0.5}
-                          onPointerGuess={handlePointerGuess}
-                          onKeyGuess={handleKeyGuess}
+                      {/* Neighbouring outlines overpaint each other, so the most recent
+                          guess is redrawn on top where it cannot be half-hidden. */}
+                      {last && (
+                        <path
+                          d={last.svgPath}
+                          fill="none"
+                          stroke={LAST_GUESS_STROKE}
+                          strokeWidth={2.25}
+                          strokeLinejoin="round"
+                          vectorEffect="non-scaling-stroke"
+                          pointerEvents="none"
                         />
-                      );
-                    })}
+                      )}
+                    </>
+                  );
+                }}
+              </Geographies>
 
-                    {/* Neighbouring outlines overpaint each other, so the most recent
-                        guess is redrawn on top where it cannot be half-hidden. */}
-                    {last && (
-                      <path
-                        d={last.svgPath}
-                        fill="none"
-                        stroke={LAST_GUESS_STROKE}
-                        strokeWidth={2.25}
-                        strokeLinejoin="round"
-                        vectorEffect="non-scaling-stroke"
-                        pointerEvents="none"
-                      />
-                    )}
-                  </>
-                );
-              }}
-            </Geographies>
-
-            <MicroMarkerLayer
-              fills={fills}
-              guessedIds={guessedIds}
-              lastGuessId={lastGuessId}
-              enabled={enabled}
-              onPointerGuess={handlePointerGuess}
-              onKeyGuess={handleKeyGuess}
-            />
-          </ZoomableGroup>
-        </ComposableMap>
+              <MicroMarkerLayer
+                fills={fills}
+                guessedIds={guessedIds}
+                lastGuessId={lastGuessId}
+                enabled={enabled}
+                onPointerGuess={handlePointerGuess}
+                onKeyGuess={handleKeyGuess}
+              />
+            </ZoomableGroup>
+          </ComposableMap>
+        </div>
       )}
 
       <span ref={skipTargetRef} tabIndex={-1} className="sr-only">
-        End of map
+        {t('play.endOfMap')}
       </span>
     </div>
   );
@@ -705,6 +732,7 @@ function MicroMarkerLayer({
   onPointerGuess,
   onKeyGuess,
 }: MicroMarkerLayerProps) {
+  const t = useTranslator();
   const { k } = useZoomPanContext();
   const groupRef = useRef<SVGGElement>(null);
 
@@ -726,6 +754,7 @@ function MicroMarkerLayer({
       {MICRO_COUNTRIES.map((country) => {
         const guessed = guessedIds.has(country.id);
         const isLast = country.id === lastGuessId;
+        const localised = t.country(country);
         return (
           <MicroMarker
             key={country.id}
@@ -733,7 +762,9 @@ function MicroMarkerLayer({
             enabled={enabled}
             fill={fills.get(country.id) ?? LAND_FILL}
             ring={isLast ? LAST_GUESS_STROKE : guessed ? GUESSED_STROKE : MICRO_RING}
-            label={guessed ? `${country.name}, already guessed` : country.name}
+            label={
+              guessed ? t('play.a11y.alreadyGuessed', { country: localised }) : localised
+            }
             onPointerGuess={onPointerGuess}
             onKeyGuess={onKeyGuess}
           />
