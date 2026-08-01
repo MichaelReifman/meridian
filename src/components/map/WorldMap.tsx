@@ -92,6 +92,26 @@ const REPEAT_GUESS_MS = 400;
 
 /** Playable territory, before any ring has tinted it. */
 const LAND_FILL = 'var(--land)';
+
+/**
+ * The hand-colouring: one watercolour wash per continent, laid inside the coastline.
+ *
+ * This is what a colourist did to an engraved plate, and it is doing real work rather
+ * than decorating — a washed map tells you which continent you are looking at before
+ * you have read a single name, which matters in a game about placing things. The washes
+ * differ from one another in hue but barely in value, so no continent reads as more
+ * important than its neighbour, and all of them stay pale enough that the heatmap,
+ * which is darker than every one of them, sits unambiguously on top.
+ */
+const WASH: Readonly<Record<string, string>> = {
+  Africa: 'var(--wash-africa)',
+  Americas: 'var(--wash-americas)',
+  Asia: 'var(--wash-asia)',
+  Europe: 'var(--wash-europe)',
+  Oceania: 'var(--wash-oceania)',
+};
+
+const washFor = (country: Country): string => WASH[country.region] ?? LAND_FILL;
 /**
  * Territory the game never plays. A quieter stock than `LAND_FILL` rather than a
  * different hue: the difference has to be legible at a glance, without hovering, but it
@@ -229,7 +249,8 @@ export function WorldMap({
     for (const c of COUNTRIES) {
       const band = quantizeBands(ringConsistency([c.lon, c.lat], rings, tolerance));
       if (band <= 0) {
-        next.set(c.id, LAND_FILL);
+        // Untouched by the rings, so it keeps its hand-colouring rather than going blank.
+        next.set(c.id, washFor(c));
         continue;
       }
       let colour = paint.get(band);
@@ -556,7 +577,7 @@ export function WorldMap({
                                 : localised
                             }
                             enabled={enabled}
-                            fill={fills.get(country.id) ?? LAND_FILL}
+                            fill={fills.get(country.id) ?? washFor(country)}
                             stroke={
                               isLast
                                 ? LAST_GUESS_STROKE
@@ -760,7 +781,7 @@ function MicroMarkerLayer({
             key={country.id}
             country={country}
             enabled={enabled}
-            fill={fills.get(country.id) ?? LAND_FILL}
+            fill={fills.get(country.id) ?? washFor(country)}
             ring={isLast ? LAST_GUESS_STROKE : guessed ? GUESSED_STROKE : MICRO_RING}
             label={
               guessed ? t('play.a11y.alreadyGuessed', { country: localised }) : localised

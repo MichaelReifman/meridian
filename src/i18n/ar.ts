@@ -43,6 +43,15 @@ export const AR: Dictionary = {
   'menu.a11y.practice': 'ابدأ جولة تدريب في نمط {mode}',
   'menu.a11y.streak': 'السلسلة اليومية الحالية: {count} يومًا.',
   'menu.a11y.more': 'المزيد',
+  'menu.a11y.practiceRegion': 'منطقة التدريب',
+
+  /* --- regions ----------------------------------------------------------- */
+  'region.all': 'كل المناطق',
+  'region.africa': 'أفريقيا',
+  'region.americas': 'الأمريكتان',
+  'region.asia': 'آسيا',
+  'region.europe': 'أوروبا',
+  'region.oceania': 'أوقيانوسيا',
 
   /* --- play -------------------------------------------------------------- */
   'play.findCountry': 'اعثر على هذه الدولة',
@@ -51,6 +60,7 @@ export const AR: Dictionary = {
   'play.guesses': 'التخمينات',
   'play.guessesCount': 'التخمينات حتى الآن: {count}',
   'play.km': 'كم',
+  'play.mi': 'ميل',
   'play.back': 'العودة إلى القائمة',
   'play.resetView': 'إعادة ضبط عرض الخريطة',
   'play.zoomIn': 'تكبير',
@@ -60,6 +70,14 @@ export const AR: Dictionary = {
   'play.skipMap': 'تخطّي الخريطة',
   'play.endOfMap': 'نهاية الخريطة',
   'play.mapLabel': 'خريطة العالم — اختر دولة',
+  'play.search.label': 'خمّن دولة بكتابة اسمها',
+  'play.search.placeholder': 'اكتب اسم دولة',
+  'play.search.help':
+    'اكتب جزءًا من اسم دولة، ثم حدّد اقتراحًا بسهمي الأعلى والأسفل، واضغط مفتاح الإدخال لتخمينه.',
+  'play.search.suggestions': 'الدول المطابقة',
+  'play.search.resultCount': 'الاقتراحات: {count}',
+  'play.search.noResults': 'لا تطابق ذلك أي دولة.',
+  'play.search.guessed': 'مُخمَّنة',
   'play.a11y.guessTrail': 'التخمينات حتى الآن، الأحدث أولًا',
   'play.a11y.alreadyGuessed': '{country}، سبق تخمينها',
   'play.a11y.bearing': '{distance} كيلومتر، الاتجاه {compass}',
@@ -90,6 +108,12 @@ export const AR: Dictionary = {
   'stats.played': 'لُعبت',
   'stats.solved': 'حُلّت',
   'stats.avgGuesses': 'متوسط التخمينات',
+  'stats.dist.title': 'التوزيع',
+  'stats.dist.a11y': 'التحديات اليومية المحلولة، مجمَّعة بحسب عدد التخمينات التي احتاجها كلٌّ منها',
+  'stats.dist.tenPlus': '{count}+',
+  'stats.dist.empty': 'لم يُحلّ أي تحدٍّ يومي في هذا النمط بعد.',
+  'stats.dist.inPlay':
+    'هناك جولة مفتوحة عند {count} من التخمينات. تبيّن العلامة أين ستقع إن جاء التخمين التالي صائبًا.',
   'stats.clear': 'مسح جميع البيانات',
   'stats.clearConfirm': 'محو كل السلاسل والإحصاءات؟ لا يمكن التراجع عن ذلك.',
   'stats.clearYes': 'محو كل شيء',
@@ -138,6 +162,12 @@ export const AR: Dictionary = {
   'settings.languageNote':
     'تُترجَم أسماء الدول. أما أسماء العواصم فتظهر بالحروف اللاتينية في كل اللغات، لأن بيانات المصدر لا تترجمها.',
   'settings.a11y.chooseLanguage': 'اختيار {language}',
+  'settings.distance': 'المسافات',
+  'settings.distanceNote':
+    'إعداد عرض فقط. تُقاس المسافات وتُشارَك بالكيلومترات دائمًا، حتى تبقى النتيجة المشتركة قابلة للمقارنة بين اللاعبين مهما كانت الوحدة التي يقرأ بها كل منهم.',
+  'settings.a11y.chooseUnit': 'إظهار المسافات بوحدة {unit}',
+  'units.km': 'الكيلومترات',
+  'units.mi': 'الأميال',
   'settings.about': 'عن التطبيق',
   'settings.version': 'الإصدار',
 

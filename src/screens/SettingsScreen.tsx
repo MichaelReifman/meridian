@@ -17,7 +17,9 @@ import { ArrowLeft, Check } from 'lucide-react';
 
 import { useTranslator } from '@/i18n';
 import { LOCALES } from '@/i18n/locales';
+import { DISTANCE_UNITS, UNIT_KEY, UNIT_NAME_KEY } from '@/lib/units';
 import { useLocaleStore } from '@/store/localeStore';
+import { usePrefsStore } from '@/store/prefsStore';
 import { useUiStore } from '@/store/uiStore';
 
 /**
@@ -40,6 +42,8 @@ export function SettingsScreen(): JSX.Element {
   const setScreen = useUiStore((s) => s.setScreen);
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
+  const unit = usePrefsStore((s) => s.unit);
+  const setUnit = usePrefsStore((s) => s.setUnit);
 
   return (
     <main
@@ -133,6 +137,54 @@ export function SettingsScreen(): JSX.Element {
 
           <p className="mt-5 text-sm leading-relaxed text-graphite">
             {t('settings.languageNote')}
+          </p>
+        </Section>
+
+        {/* Set as the same ruled table as the language list, because it is the same kind
+            of choice: a short closed set, one of which is in force. Two rows do not earn
+            a different control from six. */}
+        <Section id="settings-distance" title={t('settings.distance')}>
+          <ul role="list" className="border-t border-rule">
+            {DISTANCE_UNITS.map((code) => {
+              const active = code === unit;
+              const name = t(UNIT_NAME_KEY[code]);
+              return (
+                <li key={code}>
+                  <button
+                    type="button"
+                    onClick={() => setUnit(code)}
+                    aria-label={t('settings.a11y.chooseUnit', { unit: name })}
+                    aria-current={active ? 'true' : undefined}
+                    className={`flex w-full items-center gap-4 border-b border-rule border-s-2 py-3 ps-3 text-start transition-colors duration-150 ease-swift hover:bg-leaf ${
+                      active ? 'border-s-oxblood' : 'border-s-transparent'
+                    }`}
+                  >
+                    <span
+                      className={`min-w-0 flex-1 text-sm ${active ? 'text-ink' : 'text-graphite'}`}
+                    >
+                      {name}
+                    </span>
+
+                    {/* The abbreviation the readout actually prints, so the row shows
+                        what the choice looks like as well as what it is called. */}
+                    <span className={`label shrink-0 ${RTL_SAFE_ENGRAVING}`}>
+                      {t(UNIT_KEY[code])}
+                    </span>
+
+                    <Check
+                      aria-hidden="true"
+                      size={15}
+                      strokeWidth={2}
+                      className={`shrink-0 ${active ? 'text-oxblood' : 'invisible'}`}
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-5 text-sm leading-relaxed text-graphite">
+            {t('settings.distanceNote')}
           </p>
         </Section>
 

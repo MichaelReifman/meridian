@@ -93,7 +93,7 @@ export function RevealFallback({
   const name = t.country(target);
   const place = target.subregion || target.region;
   const summary = `${name}. ${outcome}. ${t('reveal.capital')}: ${
-    target.capital ?? t('common.none')
+    t.capital(target) || t('common.none')
   }. ${t('reveal.region')}: ${place}.`;
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export function RevealFallback({
           <div className="min-w-0">
             <dt className="label">{t('reveal.capital')}</dt>
             <dd className="mt-2 truncate text-sm text-ink">
-              {target.capital ? <bdi>{target.capital}</bdi> : t('common.none')}
+              {t.capital(target) ? <bdi>{t.capital(target)}</bdi> : t('common.none')}
             </dd>
           </div>
           <div className="min-w-0">

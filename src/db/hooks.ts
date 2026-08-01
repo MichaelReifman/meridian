@@ -8,8 +8,15 @@
 
 import { useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { memoryStore } from '@/db/db';
-import { getAllStats, getStats, loadRound, roundKey } from '@/db/queries';
+import { memoryStore, type GuessHistogram } from '@/db/db';
+import {
+  getAllHistograms,
+  getAllStats,
+  getOpenDailyGuessCounts,
+  getStats,
+  loadRound,
+  roundKey,
+} from '@/db/queries';
 import type { GameMode, ModeStats, Puzzle, SavedRound } from '@/types/game';
 
 /**
@@ -38,6 +45,23 @@ export function useModeStats(mode: GameMode): ModeStats | undefined {
 export function useAllStats(): ModeStats[] | undefined {
   const version = useMemoryVersion();
   return useLiveQuery(() => getAllStats(), [version]);
+}
+
+/** All three modes in GAME_MODES order; undefined until the first read resolves. */
+export function useAllHistograms(): GuessHistogram[] | undefined {
+  const version = useMemoryVersion();
+  return useLiveQuery(() => getAllHistograms(), [version]);
+}
+
+/**
+ * Guesses so far in each mode's unfinished daily for `dateKey`, null where none is
+ * open. Undefined only on the first render, before the query resolves.
+ */
+export function useOpenDailyGuessCounts(
+  dateKey: string,
+): Readonly<Record<GameMode, number | null>> | undefined {
+  const version = useMemoryVersion();
+  return useLiveQuery(() => getOpenDailyGuessCounts(dateKey), [dateKey, version]);
 }
 
 /**

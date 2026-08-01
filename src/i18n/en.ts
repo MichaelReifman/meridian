@@ -42,6 +42,15 @@ export const EN = {
   'menu.a11y.practice': 'Start a {mode} practice round',
   'menu.a11y.streak': 'Current daily streak: {count} days.',
   'menu.a11y.more': 'More',
+  'menu.a11y.practiceRegion': 'Practice region',
+
+  /* --- regions ----------------------------------------------------------- */
+  'region.all': 'All regions',
+  'region.africa': 'Africa',
+  'region.americas': 'Americas',
+  'region.asia': 'Asia',
+  'region.europe': 'Europe',
+  'region.oceania': 'Oceania',
 
   /* --- play -------------------------------------------------------------- */
   'play.findCountry': 'Find this country',
@@ -50,6 +59,7 @@ export const EN = {
   'play.guesses': 'Guesses',
   'play.guessesCount': '{count} guesses so far',
   'play.km': 'km',
+  'play.mi': 'mi',
   'play.back': 'Back to menu',
   'play.resetView': 'Reset map view',
   'play.zoomIn': 'Zoom in',
@@ -59,6 +69,14 @@ export const EN = {
   'play.skipMap': 'Skip the map',
   'play.endOfMap': 'End of map',
   'play.mapLabel': 'World map — choose a country',
+  'play.search.label': 'Guess a country by typing its name',
+  'play.search.placeholder': 'Type a country',
+  'play.search.help':
+    'Type part of a country name, then use the up and down arrow keys to mark a suggestion and Enter to guess it.',
+  'play.search.suggestions': 'Matching countries',
+  'play.search.resultCount': '{count} suggestions',
+  'play.search.noResults': 'No country matches that.',
+  'play.search.guessed': 'Guessed',
   'play.a11y.guessTrail': 'Guesses so far, newest first',
   'play.a11y.alreadyGuessed': '{country}, already guessed',
   'play.a11y.bearing': '{distance} kilometres, bearing {compass}',
@@ -89,6 +107,12 @@ export const EN = {
   'stats.played': 'Played',
   'stats.solved': 'Solved',
   'stats.avgGuesses': 'Avg guesses',
+  'stats.dist.title': 'Distribution',
+  'stats.dist.a11y': 'Solved dailies, grouped by how many guesses each one took',
+  'stats.dist.tenPlus': '{count}+',
+  'stats.dist.empty': 'No daily solved in this mode yet.',
+  'stats.dist.inPlay':
+    'A round is open at {count} guesses. The mark shows where it lands if the next one is right.',
   'stats.clear': 'Clear all data',
   'stats.clearConfirm': 'Erase every streak and statistic? This cannot be undone.',
   'stats.clearYes': 'Erase everything',
@@ -137,6 +161,12 @@ export const EN = {
   'settings.languageNote':
     'Country names are translated. Capital city names are shown in Latin script in every language, because the source data does not translate them.',
   'settings.a11y.chooseLanguage': 'Choose {language}',
+  'settings.distance': 'Distance',
+  'settings.distanceNote':
+    'A display setting only. Distances are always measured and shared in kilometres, so a shared result stays comparable between players whichever unit each of them reads.',
+  'settings.a11y.chooseUnit': 'Show distances in {unit}',
+  'units.km': 'Kilometres',
+  'units.mi': 'Miles',
   'settings.about': 'About',
   'settings.version': 'Version',
 

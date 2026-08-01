@@ -16,6 +16,7 @@ import { ES } from '@/i18n/es';
 import { FR } from '@/i18n/fr';
 import { PT } from '@/i18n/pt';
 import { COUNTRY_NAMES } from '@/data/countryNames.generated';
+import { CAPITAL_NAMES } from '@/data/capitalNames.generated';
 import { localeMeta, type LocaleCode } from '@/i18n/locales';
 import { useLocaleStore } from '@/store/localeStore';
 import type { Country } from '@/types/game';
@@ -60,6 +61,15 @@ export interface Translator {
   readonly num: (value: number, options?: Intl.NumberFormatOptions) => string;
   /** The country's name in the current language, falling back to its English name. */
   readonly country: (country: Country) => string;
+  /**
+   * The country's capital in the current language, falling back to the English name.
+   *
+   * The fallback is not a defect for every gap it covers: Abuja is spelled Abuja in
+   * German, so Wikidata carries no separate label and the English name is the right
+   * answer. Where a language genuinely lacks a label the clue stays Latin script for
+   * that one city rather than going blank.
+   */
+  readonly capital: (country: Country) => string;
 }
 
 export function useTranslator(): Translator {
@@ -85,6 +95,8 @@ export function useTranslator(): Translator {
       num: (value: number, options?: Intl.NumberFormatOptions) =>
         options ? new Intl.NumberFormat(meta.tag, options).format(value) : numberFormat.format(value),
       country: (country: Country) => COUNTRY_NAMES[locale]?.[country.id] ?? country.name,
+      capital: (country: Country) =>
+        CAPITAL_NAMES[locale]?.[country.id] ?? country.capital ?? '',
     });
   }, [t, locale, meta.dir, meta.tag, numberFormat]);
 }

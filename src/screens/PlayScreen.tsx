@@ -25,6 +25,7 @@ import { ArrowLeft, Flag, Globe, Maximize2, Share2, Shuffle } from 'lucide-react
 
 import { ClueCard } from '@/components/hud/ClueCard';
 import { CompassArrow } from '@/components/hud/CompassArrow';
+import { CountrySearch } from '@/components/hud/CountrySearch';
 import { GuessCounter } from '@/components/hud/GuessCounter';
 import { GuessTrail } from '@/components/hud/GuessTrail';
 import { IconButton } from '@/components/hud/IconButton';
@@ -246,9 +247,28 @@ export function PlayScreen({ reveal: Reveal }: { reveal: RevealComponent }): JSX
         </div>
 
         {/* `min-w-0` so the clue may shrink rather than force the row wider than the
-            viewport — without it a long country name pushes the controls off-screen. */}
-        <div className="flex min-w-0 flex-1 justify-center">
+            viewport — without it a long country name pushes the controls off-screen.
+            The search stacks under the clue and takes the column's full width; its
+            suggestion list is absolutely positioned, so this column's height is still
+            just the clue's and the row's no-overlap guarantee is untouched. */}
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
           <ClueCard mode={clue.kind} text={clueText} flagSrc={clue.flagSrc} />
+
+          {/**
+           * Capital and Flag modes only, and this condition is the feature.
+           *
+           * In Country mode the clue *is* the country's name, so a field that accepts a
+           * typed name accepts the answer verbatim and the round stops being a deduction.
+           * In Capital and Flag mode the clue is a city or an image, and naming the
+           * country it belongs to is the thing the player is being asked to know — the
+           * field only spares them hunting for it on the chart.
+           *
+           * Withdrawn once the round is over for the same reason the give-up control is:
+           * nothing on a finished board takes a guess.
+           */}
+          {playing && round.puzzle.mode !== 'country' && (
+            <CountrySearch guessedIds={guessedIds} onGuess={submitGuess} />
+          )}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">

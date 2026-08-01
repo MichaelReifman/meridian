@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "data": "node scripts/build-data.mjs",
     "flags": "node scripts/fetch-flags.mjs",
+    "capitals": "node scripts/fetch-capitals.mjs",
     "icons": "node scripts/make-icons.mjs",
     "check": "node scripts/check-assets.mjs",
     "test": "node --test tests/*.test.mjs"

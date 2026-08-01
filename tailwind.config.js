@@ -24,6 +24,8 @@ export default {
         sea: 'rgb(var(--sea-rgb) / <alpha-value>)',
         land: 'rgb(var(--land-rgb) / <alpha-value>)',
         coast: 'rgb(var(--coast-rgb) / <alpha-value>)',
+        ice: 'rgb(var(--ice-rgb) / <alpha-value>)',
+        ocean: 'rgb(var(--ocean-rgb) / <alpha-value>)',
         // Translucent by definition — they carry their own alpha, so no placeholder.
         rule: 'var(--rule)',
         'rule-soft': 'var(--rule-soft)',

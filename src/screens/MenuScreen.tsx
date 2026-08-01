@@ -18,12 +18,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 import { useModeStats, useSavedRound } from '@/db/hooks';
 import { currentStreakFor } from '@/db/queries';
 import { translate, useTranslator, type Translator } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
 import { dailyPuzzle, localDateKey, msUntilLocalMidnight } from '@/lib/daily';
+import { REGION_FILTERS, REGION_KEY, isRegionFilter, usePrefsStore } from '@/store/prefsStore';
 import { useUiStore } from '@/store/uiStore';
 import { GAME_MODES, type GameMode, type PuzzleKind } from '@/types/game';
 
@@ -226,7 +228,10 @@ function ModeEntry({
 
       <p className="mt-2 ps-11 text-sm leading-relaxed text-graphite">{t(meta.blurb)}</p>
 
-      <div className="mt-3 flex items-center gap-5 ps-11">
+      {/* `flex-wrap` rather than a second row: the three items fit on one line in
+          English and do not in German, and the approved layout is one line wherever
+          there is room for one. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 ps-11">
         <EntryAction
           onClick={() => onStart(mode, 'daily')}
           emphasis={!done}
@@ -245,8 +250,69 @@ function ModeEntry({
         >
           {t('menu.practice')}
         </EntryAction>
+
+        {/* Qualifies the Practice action it sits beside, and only that one. The Daily
+            entry above it is deliberately not offered the filter. */}
+        <PracticeRegionSelect />
       </div>
     </section>
+  );
+}
+
+/**
+ * The region Practice draws from, set as a word with a rule under it so it reads as a
+ * qualifier on the action beside it rather than as a separate control.
+ *
+ * A native `<select>` under `appearance-none`: it is compact, it is one preference the
+ * player can see the current value of without opening anything, and it arrives with
+ * keyboard operation, type-ahead and the platform's own picker already correct — none of
+ * which a hand-built listbox would get right for free. The chevron is the only ornament
+ * and it is the affordance the stripped native one leaves missing.
+ *
+ * One preference, three appearances. Every mode entry shows the same value and changing
+ * any of them changes all three, which is why the accessible name names the setting and
+ * not the mode: the three controls are the same control, and giving them different names
+ * would promise a per-mode filter that does not exist.
+ *
+ * The Daily Challenge is not offered this and must never read it. A daily narrowed to a
+ * region is no longer the same puzzle for everyone, and the shared result is the premise.
+ */
+function PracticeRegionSelect(): JSX.Element {
+  const t = useTranslator();
+  const region = usePrefsStore((s) => s.practiceRegion);
+  const setPracticeRegion = usePrefsStore((s) => s.setPracticeRegion);
+
+  return (
+    <span className="relative inline-flex items-center">
+      <select
+        value={region}
+        onChange={(event) => {
+          // Narrowed rather than cast: the value comes back from the DOM as a string,
+          // and a stale option from a bfcache restore should be ignored, not stored.
+          const chosen = event.target.value;
+          if (isRegionFilter(chosen)) setPracticeRegion(chosen);
+        }}
+        aria-label={t('menu.a11y.practiceRegion')}
+        /* `-my-2 py-2` gives the same tall hit area as the text actions beside it while
+           the rule stays tight under the word. */
+        className="ease-swift -my-2 cursor-pointer appearance-none border-b border-ink/25 bg-transparent py-2 pe-4 text-sm text-graphite transition-colors duration-150 hover:border-ink/70"
+      >
+        {REGION_FILTERS.map((code) => (
+          <option key={code} value={code}>
+            {t(REGION_KEY[code])}
+          </option>
+        ))}
+      </select>
+
+      {/* Not directional — a disclosure chevron points down in both directions — so it
+          is placed on the logical end edge and never mirrored. */}
+      <ChevronDown
+        aria-hidden="true"
+        size={12}
+        strokeWidth={1.75}
+        className="pointer-events-none absolute end-0 top-1/2 -translate-y-1/2 text-brass"
+      />
+    </span>
   );
 }
 

@@ -6,7 +6,15 @@
  * the in-memory fallback path cannot drift apart.
  */
 
-import { memoryStore, withStorage, type StoredRound } from '@/db/db';
+import {
+  bucketIndexFor,
+  emptyBuckets,
+  HISTOGRAM_BUCKETS,
+  memoryStore,
+  withStorage,
+  type GuessHistogram,
+  type StoredRound,
+} from '@/db/db';
 import {
   GAME_MODES,
   type GameMode,
@@ -40,6 +48,34 @@ function emptyStats(mode: GameMode): ModeStats {
     practiceSolved: 0,
     practiceTotalGuessesOnSolved: 0,
   };
+}
+
+function emptyHistogram(mode: GameMode): GuessHistogram {
+  return { mode, buckets: emptyBuckets() };
+}
+
+/**
+ * True for the one kind of result the histogram describes.
+ *
+ * The chart is a picture of the Daily Challenge alone. Practice deals unlimited
+ * puzzles and would swamp the shape, and a give-up produced no guess count to place.
+ */
+function countsInHistogram(kind: PuzzleKind, solved: boolean): boolean {
+  return kind === 'daily' && solved;
+}
+
+/** `prev` with one solve added to its bucket. Pure, like `applyResult`. */
+function addSolve(prev: GuessHistogram, guessCount: number): GuessHistogram {
+  // Rebuilt onto a fresh full-length array rather than spread from `prev`. The counts
+  // are cumulative and never recomputed, so a single non-number arriving from a stored
+  // row would turn into a NaN on the next `+= 1` and stay one forever.
+  const buckets = emptyBuckets();
+  for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
+    const carried = prev.buckets[i];
+    if (Number.isFinite(carried)) buckets[i] = carried;
+  }
+  buckets[bucketIndexFor(guessCount)] += 1;
+  return { mode: prev.mode, buckets };
 }
 
 /** Parse a `YYYY-MM-DD` key into local midnight on that calendar day. */
@@ -213,25 +249,93 @@ export async function recordResult(
 
   await withStorage<void>(
     async (database) => {
-      // A transaction, not a read-then-write: two results landing together (an
-      // autosave racing the round's own finalise) would otherwise both read the same
-      // `prev` and one increment would vanish.
-      const next = await database.transaction('rw', database.modeStats, async () => {
-        const prev = (await database.modeStats.get(puzzle.mode)) ?? emptyStats(puzzle.mode);
-        const updated = applyResult(prev, puzzle.kind, puzzle.dateKey, guesses, solved);
-        if (updated !== prev) await database.modeStats.put(updated);
-        return updated;
-      });
-      memoryStore.stats.set(puzzle.mode, next);
+      // One transaction over both tables, not two writes: they are two projections of
+      // the same event, and a failure between them would leave a record that disagrees
+      // with itself. It is also a transaction rather than a read-then-write because two
+      // results landing together (an autosave racing the round's own finalise) would
+      // otherwise both read the same `prev` and one increment would vanish.
+      const next = await database.transaction(
+        'rw',
+        database.modeStats,
+        database.histograms,
+        async () => {
+          const prev = (await database.modeStats.get(puzzle.mode)) ?? emptyStats(puzzle.mode);
+          const updated = applyResult(prev, puzzle.kind, puzzle.dateKey, guesses, solved);
+          // Identity means applyResult rejected this result as one already recorded —
+          // which is exactly the condition under which the histogram must not count it
+          // again either. Deriving the bucket write from the same signal is what keeps
+          // recordResult idempotent per round now that it writes two tables.
+          if (updated === prev) return { stats: prev, histogram: undefined };
+          await database.modeStats.put(updated);
+
+          if (!countsInHistogram(puzzle.kind, solved)) {
+            return { stats: updated, histogram: undefined };
+          }
+          const prevHist =
+            (await database.histograms.get(puzzle.mode)) ?? emptyHistogram(puzzle.mode);
+          const histogram = addSolve(prevHist, guesses);
+          await database.histograms.put(histogram);
+          return { stats: updated, histogram };
+        },
+      );
+      memoryStore.stats.set(puzzle.mode, next.stats);
+      if (next.histogram !== undefined) memoryStore.histograms.set(puzzle.mode, next.histogram);
     },
     () => {
       const prev = memoryStore.stats.get(puzzle.mode) ?? emptyStats(puzzle.mode);
       const next = applyResult(prev, puzzle.kind, puzzle.dateKey, guesses, solved);
       if (next === prev) return;
       memoryStore.stats.set(puzzle.mode, next);
+      if (countsInHistogram(puzzle.kind, solved)) {
+        const prevHist = memoryStore.histograms.get(puzzle.mode) ?? emptyHistogram(puzzle.mode);
+        memoryStore.histograms.set(puzzle.mode, addSolve(prevHist, guesses));
+      }
       memoryStore.touch();
     },
   );
+}
+
+/** All three modes, always, in GAME_MODES order — absent rows come back zeroed. */
+export async function getAllHistograms(): Promise<GuessHistogram[]> {
+  return withStorage(
+    async (database) => {
+      const rows = await database.histograms.bulkGet([...GAME_MODES]);
+      return GAME_MODES.map((mode, i) => {
+        const histogram = rows[i] ?? emptyHistogram(mode);
+        memoryStore.histograms.set(mode, histogram);
+        return histogram;
+      });
+    },
+    () => GAME_MODES.map((mode) => memoryStore.histograms.get(mode) ?? emptyHistogram(mode)),
+  );
+}
+
+/**
+ * Guesses made so far in each mode's still-unfinished daily for `dateKey`, or null
+ * where there is no such round.
+ *
+ * Read from `rounds` rather than the game store because the store abandons its round
+ * the moment the play screen unmounts — by the time the record is on screen there is
+ * nothing left in memory to ask.
+ */
+export async function getOpenDailyGuessCounts(
+  dateKey: string,
+): Promise<Readonly<Record<GameMode, number | null>>> {
+  // Dailies are one per day by definition, so their seq is always 0.
+  const keys = GAME_MODES.map((mode) => makeKey('daily', mode, dateKey, 0));
+  const rows = await withStorage(
+    async (database) => database.rounds.bulkGet(keys),
+    () => keys.map((key) => memoryStore.rounds.get(key)),
+  );
+
+  // Spelled out rather than built by cast: GameMode is a closed union, so a fourth mode
+  // would fail to compile here instead of silently returning a partial record.
+  const open: Record<GameMode, number | null> = { country: null, capital: null, flag: null };
+  GAME_MODES.forEach((mode, i) => {
+    const row = rows[i];
+    if (row !== undefined && row.status === 'playing') open[mode] = row.guesses.length;
+  });
+  return open;
 }
 
 /** True once today's daily for `mode` has been solved or given up on. */
@@ -248,13 +352,21 @@ export async function isDailyComplete(mode: GameMode, dateKey: string): Promise<
 export async function clearAllData(): Promise<void> {
   memoryStore.stats.clear();
   memoryStore.rounds.clear();
+  memoryStore.histograms.clear();
   memoryStore.touch();
   await withStorage<void>(
     (database) =>
-      database.transaction('rw', database.modeStats, database.rounds, async () => {
-        await database.modeStats.clear();
-        await database.rounds.clear();
-      }),
+      database.transaction(
+        'rw',
+        database.modeStats,
+        database.rounds,
+        database.histograms,
+        async () => {
+          await database.modeStats.clear();
+          await database.rounds.clear();
+          await database.histograms.clear();
+        },
+      ),
     () => undefined,
   );
 }

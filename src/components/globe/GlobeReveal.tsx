@@ -32,7 +32,9 @@ import {
   Line,
   LineBasicMaterial,
   LineSegments,
+  CanvasTexture,
   Quaternion,
+  NoColorSpace,
   ShaderMaterial,
   Vector3,
   type Group,
@@ -41,11 +43,13 @@ import {
   type MeshBasicMaterial,
 } from 'three';
 import { feature } from 'topojson-client';
+import { geoEquirectangular, geoPath } from 'd3-geo';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import type { FeatureCollection, GeometryObject, Position } from 'geojson';
 import { ArrowRight } from 'lucide-react';
 import { useTranslator } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
+import { COUNTRIES } from '@/data/countries.generated';
 import { EARTH_RADIUS_KM, clamp01, distanceKm, lonLatToVec3, slerpLonLat } from '@/lib/geo';
 import { parseCssColor, toHexColor } from '@/lib/ramp';
 import { TOPOLOGY_URL, flagUrl } from '@/lib/paths';
@@ -177,8 +181,10 @@ function tokenRgb01(name: string, fallback: string): [number, number, number] {
 
 const LIMB_VERTEX = `
 varying vec3 vNormal;
+varying vec2 vUv;
 void main() {
   vNormal = normalize(normalMatrix * normal);
+  vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `;
@@ -193,12 +199,27 @@ void main() {
  * paper and the roundness is one line at the limb.
  */
 const GLOBE_FRAGMENT = `
-uniform vec3 uBody;
+uniform sampler2D uMap;
 uniform vec3 uLimb;
 varying vec3 vNormal;
+varying vec2 vUv;
 void main() {
-  float f = pow(1.0 - clamp(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 16.0);
-  gl_FragColor = vec4(mix(uBody, uLimb, f * 0.92), 1.0);
+  vec3 base = texture2D(uMap, vUv).rgb;
+
+  /* A very shallow gradient across the disc. Enough to say sphere rather than disc,
+     far too little to read as a lit ball — a hand-coloured plate is washed evenly and
+     gets its roundness from the drawing, so the shading here only has to keep the limb
+     from looking pasted on. */
+  vec3 n = normalize(vNormal);
+  float lambert = clamp(dot(n, normalize(vec3(-0.35, 0.45, 0.92))), 0.0, 1.0);
+  base *= 0.88 + 0.12 * lambert;
+
+  /* The inked limb. f is the facing ratio, 0 at the sub-camera point and 1 at the
+     silhouette; raised this high it stays at nothing across the whole disc and climbs
+     only in the last few degrees, landing as a hairline hard against the edge rather
+     than as a shaded terminator. */
+  float f = pow(1.0 - clamp(dot(n, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 16.0);
+  gl_FragColor = vec4(mix(base, uLimb, f * 0.92), 1.0);
 }
 `;
 
@@ -253,6 +274,8 @@ type WorldObjects = { countries: GeometryCollection<CoastProps> };
  * GPU resources stay owned by — and disposed with — the mount that created them.
  */
 let coastCache: Float32Array | null = null;
+/** Painted alongside the coastlines from the same parse, and cached for the session. */
+let earthCache: HTMLCanvasElement | null = null;
 let coastRequest: Promise<Float32Array | null> | null = null;
 
 function writeVertex(out: Float32Array, offset: number, point: Position, radius: number): number {
@@ -294,6 +317,87 @@ function buildCoastPositions(fc: FeatureCollection<GeometryObject, CoastProps>):
   return out;
 }
 
+/* ------------------------------------------------------------------ earth texture */
+
+/**
+ * The globe's surface, painted once onto an offscreen canvas.
+ *
+ * Drawing filled continents as 3D geometry would mean triangulating 195 polygons onto a
+ * sphere; painting them flat and wrapping the result costs one canvas and reuses the
+ * projection maths d3 already has. 2048×1024 is the smallest size at which a coastline
+ * still reads as a line rather than a staircase at the zoom the fly-in ends on.
+ *
+ * The mapping is equirectangular, which is exactly what THREE.SphereGeometry's own UVs
+ * are: u runs 0..1 for longitude −180..180, and v is 1 at the north pole, which with the
+ * default `flipY` puts the top row of the image at the top of the globe. So no offset or
+ * flip is needed — the canvas is drawn in plate carrée and lands where it should.
+ */
+const TEXTURE_W = 2048;
+const TEXTURE_H = 1024;
+
+/** Continent washes, deepened for the globe: this reads as the Earth, not as a chart. */
+const GLOBE_WASH: Readonly<Record<string, string>> = {
+  Africa: '--wash-africa',
+  Americas: '--wash-americas',
+  Asia: '--wash-asia',
+  Europe: '--wash-europe',
+  Oceania: '--wash-oceania',
+};
+
+/** ISO numeric ids that are drawn as permanent ice rather than as territory. */
+const ICE_IDS = new Set(['010', '304']); // Antarctica, Greenland
+
+const REGION_BY_ID: ReadonlyMap<string, string> = new Map(
+  COUNTRIES.map((c) => [c.id, c.region] as const),
+);
+
+function buildEarthCanvas(fc: FeatureCollection<GeometryObject, CoastProps>): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = TEXTURE_W;
+  canvas.height = TEXTURE_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = token('--ocean', '#4a6e88');
+  ctx.fillRect(0, 0, TEXTURE_W, TEXTURE_H);
+
+  const projection = geoEquirectangular()
+    .translate([TEXTURE_W / 2, TEXTURE_H / 2])
+    .scale(TEXTURE_W / (2 * Math.PI));
+  const path = geoPath(projection, ctx);
+
+  const land = token('--land', '#e4dcc8');
+  const ice = token('--ice', '#e9edec');
+
+  for (const f of fc.features) {
+    const id = f.id === undefined || f.id === null ? '' : String(f.id).padStart(3, '0');
+    const region = REGION_BY_ID.get(id);
+    ctx.fillStyle = ICE_IDS.has(id)
+      ? ice
+      : region
+        ? token(GLOBE_WASH[region] ?? '--land', land)
+        : land;
+    ctx.beginPath();
+    path(f);
+    ctx.fill();
+  }
+
+  /* Coastlines last, so every wash is already down and the ink sits on top of all of
+     them — the order a plate was actually printed and then coloured in reverse. */
+  ctx.strokeStyle = token('--ink', '#17140f');
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.55;
+  for (const f of fc.features) {
+    ctx.beginPath();
+    path(f);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  return canvas;
+}
+
 function loadCoastlines(): Promise<Float32Array | null> {
   if (coastCache) return Promise.resolve(coastCache);
   if (!coastRequest) {
@@ -303,7 +407,9 @@ function loadCoastlines(): Promise<Float32Array | null> {
         return res.json() as Promise<Topology<WorldObjects>>;
       })
       .then((topo) => {
-        coastCache = buildCoastPositions(feature(topo, topo.objects.countries));
+        const fc = feature(topo, topo.objects.countries);
+        coastCache = buildCoastPositions(fc);
+        earthCache = buildEarthCanvas(fc);
         return coastCache;
       })
       .catch((err: unknown) => {
@@ -433,12 +539,30 @@ function buildGraticulePositions(): Float32Array {
   return new Float32Array(out);
 }
 
-function makeGlobeMaterial(): ShaderMaterial {
-  const [br, bg, bb] = tokenRgb01('--sea', '#d6d2c4');
+/**
+ * A flat ocean stand-in, used for the frame or two before the topology has parsed.
+ *
+ * The sphere has to have *something* bound to `uMap`: sampling an unset sampler2D is
+ * undefined behaviour and renders black on some drivers, which would flash a dark disc
+ * in the middle of a cream page.
+ */
+function makeOceanFallback(): CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 2;
+  canvas.height = 2;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = token('--ocean', '#4a6e88');
+  ctx.fillRect(0, 0, 2, 2);
+  return new CanvasTexture(canvas);
+}
+
+function makeGlobeMaterial(map: CanvasTexture | null): ShaderMaterial {
   const [lr, lg, lb] = tokenRgb01('--ink', '#17140f');
   return new ShaderMaterial({
     uniforms: {
-      uBody: { value: new Vector3(br, bg, bb) },
+      uMap: { value: map },
       uLimb: { value: new Vector3(lr, lg, lb) },
     },
     vertexShader: LIMB_VERTEX,
@@ -541,7 +665,38 @@ function GlobeScene({ target, guessPath, coastPositions, reduced }: SceneProps):
     () => makeLineSegments(buildGraticulePositions(), brass, 0.3),
     [brass],
   );
-  const globeMaterial = useMemo(makeGlobeMaterial, []);
+  /**
+   * Rebuilt once the topology lands, which is what swaps the flat ocean for the painted
+   * Earth. Keyed on `coastPositions` because the canvas is produced by the same parse —
+   * if the outlines are here, the texture is too.
+   */
+  const globeMaterial = useMemo(() => {
+    const map = earthCache ? new CanvasTexture(earthCache) : makeOceanFallback();
+    if (map) {
+      /**
+       * Deliberately left un-managed rather than tagged sRGB.
+       *
+       * These shaders write straight to the framebuffer with no colour-management
+       * epilogue — which is why tokenRgb01 hands them sRGB-encoded values. Tagging the
+       * texture sRGB makes three decode it to linear on sample, and with nothing
+       * re-encoding on the way out the whole globe renders several stops too dark and
+       * oversaturated. Leaving it unmanaged means the canvas pixels arrive exactly as
+       * they were painted, which is the same contract the rest of this file follows.
+       */
+      map.colorSpace = NoColorSpace;
+      map.anisotropy = 4;
+    }
+    return makeGlobeMaterial(map);
+  }, [coastPositions]);
+
+  // The texture is ours rather than R3F's, so it is released with the material.
+  useEffect(() => {
+    return () => {
+      const map = globeMaterial.uniforms.uMap?.value as CanvasTexture | null;
+      map?.dispose();
+      globeMaterial.dispose();
+    };
+  }, [globeMaterial]);
 
   const trailVertices = trailPositions ? trailPositions.length / 3 : 0;
 
@@ -725,9 +880,9 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
   const place = target.subregion || target.region;
   /* Capital and region arrive from the source data in Latin script and are never
      translated, so each is isolated below rather than joined into one string. */
-  const facts = [target.capital, place].filter((value): value is string => Boolean(value));
+  const facts = [t.capital(target), place].filter((value): value is string => Boolean(value));
   const summary = `${name}. ${outcome}. ${t('reveal.capital')}: ${
-    target.capital ?? t('common.none')
+    t.capital(target) || t('common.none')
   }. ${t('reveal.region')}: ${place}.`;
 
   useEffect(() => {

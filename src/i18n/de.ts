@@ -41,6 +41,15 @@ export const DE: Dictionary = {
   'menu.a11y.practice': 'Übungsrunde im Modus {mode} starten',
   'menu.a11y.streak': 'Aktuelle Tagesserie: {count} Tage.',
   'menu.a11y.more': 'Mehr',
+  'menu.a11y.practiceRegion': 'Übungsregion',
+
+  /* --- regions ----------------------------------------------------------- */
+  'region.all': 'Alle Regionen',
+  'region.africa': 'Afrika',
+  'region.americas': 'Amerika',
+  'region.asia': 'Asien',
+  'region.europe': 'Europa',
+  'region.oceania': 'Ozeanien',
 
   /* --- play -------------------------------------------------------------- */
   'play.findCountry': 'Dieses Land finden',
@@ -49,6 +58,7 @@ export const DE: Dictionary = {
   'play.guesses': 'Versuche',
   'play.guessesCount': 'Versuche bisher: {count}',
   'play.km': 'km',
+  'play.mi': 'mi',
   'play.back': 'Zurück zum Menü',
   'play.resetView': 'Kartenansicht zurücksetzen',
   'play.zoomIn': 'Hineinzoomen',
@@ -58,6 +68,14 @@ export const DE: Dictionary = {
   'play.skipMap': 'Karte überspringen',
   'play.endOfMap': 'Ende der Karte',
   'play.mapLabel': 'Weltkarte — Land auswählen',
+  'play.search.label': 'Ein Land durch Eingabe seines Namens raten',
+  'play.search.placeholder': 'Land eingeben',
+  'play.search.help':
+    'Gib einen Teil eines Ländernamens ein, markiere einen Vorschlag mit den Pfeiltasten nach oben und unten und rate ihn mit der Eingabetaste.',
+  'play.search.suggestions': 'Passende Länder',
+  'play.search.resultCount': 'Vorschläge: {count}',
+  'play.search.noResults': 'Dazu passt kein Land.',
+  'play.search.guessed': 'Geraten',
   'play.a11y.guessTrail': 'Bisherige Versuche, neueste zuerst',
   'play.a11y.alreadyGuessed': '{country}, bereits geraten',
   'play.a11y.bearing': '{distance} Kilometer, Peilung {compass}',
@@ -88,6 +106,12 @@ export const DE: Dictionary = {
   'stats.played': 'Gespielt',
   'stats.solved': 'Gelöst',
   'stats.avgGuesses': 'Ø Versuche',
+  'stats.dist.title': 'Verteilung',
+  'stats.dist.a11y': 'Gelöste Tagesrätsel, gruppiert nach der Anzahl der benötigten Versuche',
+  'stats.dist.tenPlus': '{count}+',
+  'stats.dist.empty': 'In diesem Modus noch kein Tagesrätsel gelöst.',
+  'stats.dist.inPlay':
+    'Eine Runde läuft bei {count} Versuchen. Die Markierung zeigt, wo sie landet, wenn der nächste sitzt.',
   'stats.clear': 'Alle Daten löschen',
   'stats.clearConfirm': 'Alle Serien und Statistiken löschen? Das lässt sich nicht rückgängig machen.',
   'stats.clearYes': 'Alles löschen',
@@ -137,6 +161,12 @@ export const DE: Dictionary = {
   'settings.languageNote':
     'Ländernamen werden übersetzt. Hauptstadtnamen erscheinen in jeder Sprache in lateinischer Schrift, da die Quelldaten sie nicht übersetzen.',
   'settings.a11y.chooseLanguage': '{language} auswählen',
+  'settings.distance': 'Entfernungen',
+  'settings.distanceNote':
+    'Nur eine Anzeigeeinstellung. Entfernungen werden immer in Kilometern gemessen und geteilt, damit ein geteiltes Ergebnis zwischen Spielern vergleichbar bleibt, gleich welche Einheit jeder von ihnen liest.',
+  'settings.a11y.chooseUnit': 'Entfernungen in {unit} anzeigen',
+  'units.km': 'Kilometer',
+  'units.mi': 'Meilen',
   'settings.about': 'Über',
   'settings.version': 'Version',
 

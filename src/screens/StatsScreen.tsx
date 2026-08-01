@@ -2,9 +2,13 @@
  * The record, set as what it actually is: a printed statistical table.
  *
  * One ruled table per mode — label column on the start margin, figures against the end
- * margin in tabular mono, rows divided by hairlines. No cards and no bars, because
- * neither adds anything a ruled row does not, and both would invite comparison between
- * numbers that are not on the same scale.
+ * margin in tabular mono, rows divided by hairlines. Still no cards: they would invite
+ * comparison between numbers that are not on the same scale.
+ *
+ * The one figure that is drawn rather than tabulated is the guess distribution, and it
+ * earns that because it is the one place where the numbers *are* on a common scale — ten
+ * counts of the same thing. It is engraved to the same rules as everything else: ruled
+ * rows, a flat block with square ends, no axis and no legend.
  *
  * Direction: the two columns swap sides wholesale in Arabic, which `justify-between`
  * does on its own once nothing in the row is pinned to a physical edge. The figures keep
@@ -18,7 +22,13 @@
 import { useCallback, useState } from 'react';
 import { ArrowLeft, TriangleAlert } from 'lucide-react';
 
-import { useAllStats } from '@/db/hooks';
+import {
+  bucketIndexFor,
+  emptyBuckets,
+  HISTOGRAM_BUCKETS,
+  type GuessHistogram,
+} from '@/db/db';
+import { useAllHistograms, useAllStats, useOpenDailyGuessCounts } from '@/db/hooks';
 import { clearAllData, currentStreakFor } from '@/db/queries';
 import { useTranslator, type Translator } from '@/i18n';
 import type { TranslationKey } from '@/i18n/en';
@@ -58,7 +68,9 @@ export function StatsScreen(): JSX.Element {
   const t = useTranslator();
   const setScreen = useUiStore((s) => s.setScreen);
   const stats = useAllStats();
+  const histograms = useAllHistograms();
   const today = localDateKey();
+  const openDailies = useOpenDailyGuessCounts(today);
 
   const [confirming, setConfirming] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -128,7 +140,16 @@ export function StatsScreen(): JSX.Element {
 
             <div className="mt-9">
               {stats.map((row) => (
-                <ModeStatsTable key={row.mode} stats={row} today={today} />
+                <ModeStatsTable
+                  key={row.mode}
+                  stats={row}
+                  today={today}
+                  /* Matched on `mode` rather than on position. Both arrays come back in
+                     GAME_MODES order, but pairing two independent queries by index is a
+                     silent mis-attribution the moment either one stops. */
+                  histogram={histograms?.find((h) => h.mode === row.mode)}
+                  openGuesses={openDailies?.[row.mode] ?? null}
+                />
               ))}
             </div>
 
@@ -193,7 +214,17 @@ export function StatsScreen(): JSX.Element {
   );
 }
 
-function ModeStatsTable({ stats, today }: { stats: ModeStats; today: string }) {
+function ModeStatsTable({
+  stats,
+  today,
+  histogram,
+  openGuesses,
+}: {
+  stats: ModeStats;
+  today: string;
+  histogram: GuessHistogram | undefined;
+  openGuesses: number | null;
+}) {
   const t = useTranslator();
   // The stored streak is only ever written on a solve, so it says nothing about whether
   // the run is still alive; currentStreakFor is what the UI must display.
@@ -242,6 +273,11 @@ function ModeStatsTable({ stats, today }: { stats: ModeStats; today: string }) {
         />
       </dl>
 
+      {/* Sits with the daily figures, above the practice head, because it describes the
+          daily and nothing else — an average two rows up, redrawn as the shape it was
+          flattened from. */}
+      <GuessDistribution histogram={histogram} openGuesses={openGuesses} />
+
       <p className="label mt-7 border-b border-ink/40 pb-2">{t('stats.practice')}</p>
       <dl>
         <Row label={t('stats.played')} value={t.num(stats.practicePlayed)} />
@@ -289,6 +325,156 @@ function Row({
             been earned reads as a broken value rather than an absent one. */}
         {unit && value !== EMPTY && <span className="label ms-1.5">{unit}</span>}
       </dd>
+    </div>
+  );
+}
+
+/**
+ * Exactly ten counts, whatever the stored row turned out to hold.
+ *
+ * The chart's shape is fixed — nine numbered buckets and a tail — so a short, absent or
+ * damaged row must render as an empty chart rather than as a chart with rows missing,
+ * which would read as a different distribution instead of as no data.
+ */
+function bucketsOf(histogram: GuessHistogram | undefined): number[] {
+  const counts = emptyBuckets();
+  if (histogram === undefined) return counts;
+  for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
+    const n = histogram.buckets[i];
+    if (Number.isFinite(n)) counts[i] = n;
+  }
+  return counts;
+}
+
+/**
+ * The histogram the averages above cannot show: how many solved dailies took each
+ * number of guesses.
+ *
+ * Ruled rows rather than a chart library — bucket down the start margin, a plain
+ * oxblood block, the count against the end margin. There is no axis, no gridline and no
+ * legend, because a printed figure of ten rows carries its own scale in its labels.
+ */
+function GuessDistribution({
+  histogram,
+  openGuesses,
+}: {
+  histogram: GuessHistogram | undefined;
+  openGuesses: number | null;
+}): JSX.Element {
+  const t = useTranslator();
+  const counts = bucketsOf(histogram);
+  const total = counts.reduce((sum, n) => sum + n, 0);
+
+  /* Where a round still in play lands if the very next guess is the right one: the
+     guesses already spent plus that one. A round that has only just been opened sits at
+     zero and therefore marks bucket 1, which is exactly what solving it now would score. */
+  const markedIndex = openGuesses === null ? null : bucketIndexFor(openGuesses + 1);
+
+  /* Bars are scaled against the tallest bucket. Against the total they would all be
+     slivers once a few dozen rounds are in; against the *range* — (n − min) / (max − min)
+     — a record where every bucket happens to be equal would collapse to nothing at all.
+     The floor of 1 is for the empty chart, which must divide rather than produce NaN. */
+  const peak = Math.max(...counts, 1);
+
+  return (
+    <div>
+      <div className="mt-7 flex items-baseline justify-between gap-4 border-b border-ink/40 pb-2">
+        <h3 className="label">{t('stats.dist.title')}</h3>
+        {/* Names the figure column, the way the mode head names its own. */}
+        <span className="label shrink-0">{t('stats.solved')}</span>
+      </div>
+
+      {/* One translated sentence, not a label built from fragments: a bare "1 … 4" read
+          aloud needs to be told which number is the guess count and which is the tally. */}
+      <p className="sr-only">{t('stats.dist.a11y')}</p>
+
+      {total === 0 && markedIndex === null ? (
+        /* A marginal note, matching the page's other one. Ten ruled zeroes would be a
+           chart asserting a shape it has no data for. */
+        <p className="mt-4 border-s border-brass ps-4 text-sm leading-relaxed text-graphite">
+          {t('stats.dist.empty')}
+        </p>
+      ) : (
+        <>
+          <dl className="mt-1">
+            {counts.map((count, i) => (
+              <BucketRow
+                key={i}
+                /* The last bucket is a tail, not a value: "10+" is where a geography
+                   deduction genuinely lands often enough to need its own row. */
+                label={
+                  i === HISTOGRAM_BUCKETS - 1
+                    ? t('stats.dist.tenPlus', { count: t.num(HISTOGRAM_BUCKETS) })
+                    : t.num(i + 1)
+                }
+                count={count}
+                fraction={count / peak}
+                marked={i === markedIndex}
+              />
+            ))}
+          </dl>
+
+          {openGuesses !== null && (
+            /* The mark is a brass rule, and a rule is a colour. This says the same thing
+               in words and a number, which is the rule the whole design follows. */
+            <p className="mt-4 border-s border-brass ps-4 text-sm leading-relaxed text-graphite">
+              {t('stats.dist.inPlay', { count: t.num(openGuesses) })}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One bar of the histogram.
+ *
+ * The whole block is inset by its own marker rule so that a marked row and an unmarked
+ * one occupy identical space — the mark appears, nothing moves. That inset is also what
+ * sets the figure apart from the ruled table above it, which is correct: this is a
+ * plate, not another run of rows.
+ */
+function BucketRow({
+  label,
+  count,
+  fraction,
+  marked,
+}: {
+  label: string;
+  count: number;
+  fraction: number;
+  marked: boolean;
+}): JSX.Element {
+  const t = useTranslator();
+  return (
+    <div
+      className={`flex items-center gap-3 border-b border-rule border-s-2 py-2 ps-2.5 ${
+        marked ? 'border-s-brass' : 'border-s-transparent'
+      }`}
+    >
+      {/* A numeral, so mono and tabular like every other figure — but sized and spaced as
+          a label, which is the column's job. Arabic takes the face and the figures and
+          neither the casing nor the tracking. */}
+      <dt className="label tabular w-9 shrink-0 font-mono text-ink rtl:normal-case rtl:tracking-normal">
+        {/* The tail label carries a `+` beside its digits; isolated so the sign does not
+            jump to the far side of the number in a right-to-left run. */}
+        <bdi>{label}</bdi>
+      </dt>
+
+      {/* Hidden from the reading order: it is the count beside it, drawn. The cell keeps
+          its height at zero so an empty row rules the same as a full one. */}
+      <div aria-hidden="true" className="flex h-2.5 min-w-0 flex-1 items-stretch">
+        {count > 0 && (
+          /* Square ends, flat fill, sized from the start margin — `width` is a logical
+             measure, so the block grows from the right in Arabic without any mirroring.
+             The floor keeps a lone entry against a tall peak visible as a mark rather
+             than as nothing. */
+          <div className="min-w-[2px] bg-oxblood" style={{ width: `${fraction * 100}%` }} />
+        )}
+      </div>
+
+      <dd className="tabular w-10 shrink-0 text-end font-mono text-sm text-ink">{t.num(count)}</dd>
     </div>
   );
 }

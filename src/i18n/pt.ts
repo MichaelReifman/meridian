@@ -36,6 +36,15 @@ export const PT: Dictionary = {
   'menu.a11y.practice': 'Iniciar uma ronda de treino de {mode}',
   'menu.a11y.streak': 'Sequência diária atual: {count} dias.',
   'menu.a11y.more': 'Mais',
+  'menu.a11y.practiceRegion': 'Região de treino',
+
+  /* --- regions ----------------------------------------------------------- */
+  'region.all': 'Todas as regiões',
+  'region.africa': 'África',
+  'region.americas': 'Américas',
+  'region.asia': 'Ásia',
+  'region.europe': 'Europa',
+  'region.oceania': 'Oceânia',
 
   /* --- play -------------------------------------------------------------- */
   'play.findCountry': 'Encontre este país',
@@ -44,6 +53,7 @@ export const PT: Dictionary = {
   'play.guesses': 'Tentativas',
   'play.guessesCount': '{count} tentativas até agora',
   'play.km': 'km',
+  'play.mi': 'mi',
   'play.back': 'Voltar ao menu',
   'play.resetView': 'Repor a vista do mapa',
   'play.zoomIn': 'Aproximar',
@@ -53,6 +63,14 @@ export const PT: Dictionary = {
   'play.skipMap': 'Saltar o mapa',
   'play.endOfMap': 'Fim do mapa',
   'play.mapLabel': 'Mapa do mundo — escolha um país',
+  'play.search.label': 'Adivinhar um país escrevendo o seu nome',
+  'play.search.placeholder': 'Escreva um país',
+  'play.search.help':
+    'Escreva parte do nome de um país e marque uma sugestão com as setas para cima e para baixo; prima a tecla Enter para a tentar.',
+  'play.search.suggestions': 'Países correspondentes',
+  'play.search.resultCount': 'Sugestões: {count}',
+  'play.search.noResults': 'Nenhum país corresponde a isso.',
+  'play.search.guessed': 'Tentado',
   'play.a11y.guessTrail': 'Tentativas efetuadas, da mais recente para a mais antiga',
   'play.a11y.alreadyGuessed': '{country}, já tentado',
   'play.a11y.bearing': '{distance} quilómetros, rumo {compass}',
@@ -83,6 +101,12 @@ export const PT: Dictionary = {
   'stats.played': 'Jogadas',
   'stats.solved': 'Resolvidas',
   'stats.avgGuesses': 'Média de tentativas',
+  'stats.dist.title': 'Distribuição',
+  'stats.dist.a11y': 'Desafios diários resolvidos, agrupados pelas tentativas que cada um exigiu',
+  'stats.dist.tenPlus': '{count}+',
+  'stats.dist.empty': 'Ainda não resolveu nenhum desafio diário neste modo.',
+  'stats.dist.inPlay':
+    'Há uma ronda em curso com {count} tentativas. A marca indica onde ficará se a próxima acertar.',
   'stats.clear': 'Apagar todos os dados',
   'stats.clearConfirm':
     'Apagar todas as sequências e estatísticas? Esta operação é irreversível.',
@@ -134,6 +158,12 @@ export const PT: Dictionary = {
   'settings.languageNote':
     'Os nomes dos países são traduzidos. Os nomes das capitais são apresentados em alfabeto latino em todos os idiomas, porque os dados de origem não os traduzem.',
   'settings.a11y.chooseLanguage': 'Escolher {language}',
+  'settings.distance': 'Distâncias',
+  'settings.distanceNote':
+    'É apenas uma definição de apresentação. As distâncias são sempre calculadas e partilhadas em quilómetros, para que um resultado partilhado continue comparável entre jogadores, seja qual for a unidade que cada um lê.',
+  'settings.a11y.chooseUnit': 'Mostrar as distâncias em {unit}',
+  'units.km': 'Quilómetros',
+  'units.mi': 'Milhas',
   'settings.about': 'Acerca de',
   'settings.version': 'Versão',
 

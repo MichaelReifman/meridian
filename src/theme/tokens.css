@@ -40,13 +40,32 @@
   --brass-rgb: 126 98 49;
 
   /* --- cartography -------------------------------------------------------- */
-  /* Sea sits a clear step below land. An atlas separates the two mostly by coastline, so
-     the gap is deliberately small — but at the original #D6D2C4 it measured 1.11:1
-     against land, which is close enough to invisible that the coast was doing all the
-     work. 1.29:1 keeps the restraint and still reads as water at a glance. */
-  --sea-rgb: 201 195 177; /* #C9C3B1 ocean */
-  --land-rgb: 228 220 200; /* #E4DCC8 territory */
-  --coast-rgb: 176 165 141; /* #B0A58D coastlines and borders */
+  /**
+   * Hand colouring.
+   *
+   * Engraved atlases were not monochrome. The plate was printed in one ink and then
+   * washed by hand in watercolour — a pale tint per region, laid inside the coastline,
+   * with the linework still doing all the drawing. That is the licence this palette
+   * takes: the colour sits *under* the ink rather than replacing it, which is why every
+   * wash is light enough that a coastline, a label and the heatmap all still read on top.
+   */
+  --sea-rgb: 143 173 193; /* #8FADC1 a diluted Prussian-blue wash */
+  --land-rgb: 228 220 200; /* #E4DCC8 unattributed land, and the wash fallback */
+  --coast-rgb: 150 138 116; /* #968A74 coastlines and borders */
+  --ice-rgb: 233 237 236; /* #E9EDEC permanent ice */
+
+  /* One wash per continent, the way a colourist would have laid them out: adjacent
+     regions differ in hue rather than in value, so no region reads as more important
+     than another, and all of them stay pale enough to sit beneath the heatmap. */
+  --wash-africa-rgb: 227 200 143; /* #E3C88F ochre */
+  --wash-americas-rgb: 194 206 155; /* #C2CE9B pale olive */
+  --wash-asia-rgb: 224 183 156; /* #E0B79C terracotta */
+  --wash-europe-rgb: 179 198 172; /* #B3C6AC sage */
+  --wash-oceania-rgb: 214 188 166; /* #D6BCA6 warm taupe */
+
+  /* The globe is the showpiece and reads as the Earth rather than as a chart, so its
+     ocean is the same pigment at full strength instead of diluted. */
+  --ocean-rgb: 74 110 136; /* #4A6E88 */
 
   /* --- composed ----------------------------------------------------------- */
   --paper: rgb(var(--paper-rgb));
@@ -59,6 +78,13 @@
   --sea: rgb(var(--sea-rgb));
   --land: rgb(var(--land-rgb));
   --coast: rgb(var(--coast-rgb));
+  --ice: rgb(var(--ice-rgb));
+  --ocean: rgb(var(--ocean-rgb));
+  --wash-africa: rgb(var(--wash-africa-rgb));
+  --wash-americas: rgb(var(--wash-americas-rgb));
+  --wash-asia: rgb(var(--wash-asia-rgb));
+  --wash-europe: rgb(var(--wash-europe-rgb));
+  --wash-oceania: rgb(var(--wash-oceania-rgb));
 
   /* Hairlines carry their own alpha, so they are never used with an opacity modifier.
      Two weights: `rule` for structure, `rule-soft` for grouping without division. */
@@ -76,8 +102,12 @@
    * The compass arrow and kilometre readout still carry the same information
    * independently, so proximity is never colour-alone (PRD §4).
    */
-  --ramp-0: #d9cfb4;
-  --ramp-1: #b08a46;
+  /* Deepened now that the land beneath it is washed rather than blank. The old cold end
+     (#D9CFB4) sat at almost exactly the value of the sage and olive washes, so the first
+     band would have disappeared into Europe and the Americas. Every band is now more
+     saturated and darker than any wash, which keeps the ramp unambiguously on top. */
+  --ramp-0: #b79148;
+  --ramp-1: #a8722f;
   --ramp-2: #6e2119;
 
   /* Safe-area insets, so page furniture clears notches and home indicators. */

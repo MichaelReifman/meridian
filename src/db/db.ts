@@ -26,26 +26,98 @@ export interface StoredRound extends SavedRound {
   readonly dateKey: string;
 }
 
+/** Buckets are 1 through 9 guesses, plus a final one standing for ten or more. */
+export const HISTOGRAM_BUCKETS = 10;
+
+/**
+ * A `histograms` row: how many solved dailies took each number of guesses.
+ *
+ * Its own store rather than more columns on `modeStats`, because the two are written
+ * under different conditions — every finished round moves a counter, only a solved
+ * daily moves a bucket — and keeping them apart is what lets the histogram be added
+ * as a new table in a new version instead of a migration over existing rows.
+ */
+export interface GuessHistogram {
+  readonly mode: GameMode;
+  /**
+   * Ten counts. Index i holds solves that took i+1 guesses, except the last, which
+   * holds ten or more: a geography deduction has a long enough tail that an unbounded
+   * axis would be mostly empty space.
+   */
+  readonly buckets: readonly number[];
+}
+
+export function emptyBuckets(): number[] {
+  return new Array<number>(HISTOGRAM_BUCKETS).fill(0);
+}
+
+/**
+ * The bucket a solve taking `guessCount` guesses belongs in.
+ *
+ * Clamped at both ends. The last bucket absorbs the tail by design; the first absorbs
+ * anything below one, which no real solve can be — a solve costs at least the guess
+ * that found it — but a stored row is evidence, not a guarantee, and a bad count must
+ * land somewhere rather than write past the end of the array.
+ */
+export function bucketIndexFor(guessCount: number): number {
+  if (!Number.isFinite(guessCount)) return 0;
+  const n = Math.trunc(guessCount);
+  if (n < 1) return 0;
+  return Math.min(n, HISTOGRAM_BUCKETS) - 1;
+}
+
 export class MeridianDB extends Dexie {
   /**
    * `declare` rather than a normal field: tsconfig sets `useDefineForClassFields`,
    * so a plain declaration would emit a real `defineProperty` in the constructor
-   * that overwrites the Table objects Dexie attaches to the instance, leaving both
+   * that overwrites the Table objects Dexie attaches to the instance, leaving all
    * of these permanently undefined. `declare` emits nothing at all.
    */
   declare modeStats: Table<ModeStats, GameMode>;
   declare rounds: Table<StoredRound, string>;
+  declare histograms: Table<GuessHistogram, GameMode>;
 
   constructor() {
     super('meridian');
 
-    // Version 1, and the only version. The secondary indexes on rounds are not all
-    // used yet, but adding an index later costs a schema version bump and an
-    // upgrade path for every existing player, so they are declared up front.
+    // Version 1 is frozen. Editing a shipped version in place makes the declared
+    // schema disagree with what is already on the device, which Dexie answers with a
+    // VersionError on open — and an unopenable database is a player's streaks gone.
+    // Every later change is a new version with its own upgrade path instead.
+    //
+    // The secondary indexes on rounds are not all used yet, but adding an index later
+    // costs a version bump, so they were declared up front.
     this.version(1).stores({
       modeStats: 'mode',
       rounds: 'key, kind, mode, dateKey, updatedAt, [kind+mode+dateKey]',
     });
+
+    // Version 2 adds the guess histogram. Only the new store is named: Dexie carries
+    // every table the spec omits forward from the previous version untouched, so
+    // modeStats and rounds — and therefore every streak — are not rewritten at all.
+    this.version(2)
+      .stores({ histograms: 'mode' })
+      .upgrade(async (tx) => {
+        // Backfill. Finished dailies are already saved with their whole guess list, so
+        // the histogram can be reconstructed exactly for as far back as `rounds` still
+        // reaches. Rounds played before that, or evicted since, legitimately start
+        // empty: the stats table holds only totals, and a total cannot be un-summed
+        // into a distribution without inventing the shape this chart exists to show.
+        const byMode = new Map<GameMode, number[]>();
+        await tx.table<StoredRound, string>('rounds').each((row) => {
+          // Solved dailies only. Practice is a sandbox, and a give-up has no score to
+          // place — counting either would describe a different game than the one the
+          // player is being shown.
+          if (row.kind !== 'daily' || row.status !== 'solved') return;
+          const buckets = byMode.get(row.mode) ?? emptyBuckets();
+          buckets[bucketIndexFor(row.guesses.length)] += 1;
+          byMode.set(row.mode, buckets);
+        });
+
+        if (byMode.size === 0) return;
+        const rows = Array.from(byMode, ([mode, buckets]) => ({ mode, buckets }));
+        await tx.table<GuessHistogram, GameMode>('histograms').bulkPut(rows);
+      });
   }
 }
 
@@ -116,6 +188,7 @@ let version = 0;
 export const memoryStore = {
   stats: new Map<GameMode, ModeStats>(),
   rounds: new Map<string, StoredRound>(),
+  histograms: new Map<GameMode, GuessHistogram>(),
   touch: (): void => {
     version += 1;
     for (const listener of listeners) listener();
