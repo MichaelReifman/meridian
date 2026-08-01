@@ -7,21 +7,22 @@
  */
 
 import { guessProximityPct } from '@/lib/geo';
+import { asset } from '@/lib/paths';
 import type { GameMode, RoundState } from '@/types/game';
 
 /**
  * Where a shared result points people.
  *
- * Resolved from the running origin instead of a hard-coded domain so the same build
- * works on a preview deploy, a custom domain and a LAN dev host without shipping a
- * stale link in every result. The literal is only reached where there is no document
- * at all (unit tests, prerender).
+ * Resolved from the running origin rather than a hard-coded domain, so the same build
+ * links correctly from a preview deploy, a custom domain or a LAN dev host. It must
+ * include the deployment base: the app is served from a subdirectory on GitHub Pages,
+ * and origin alone would send every recipient to the parent site instead of the game.
  */
-const CANONICAL_URL = 'https://meridian.game';
+const CANONICAL_URL = 'https://michaelreifman.github.io/meridian/';
 
 export const SHARE_URL: string =
   typeof window !== 'undefined' && window.location.protocol.startsWith('http')
-    ? `${window.location.origin}/`
+    ? `${window.location.origin}${asset('')}`
     : CANONICAL_URL;
 
 const MODE_LABEL: Readonly<Record<GameMode, string>> = {
