@@ -1,0 +1,63 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/jetbrains-mono';
+
+@import './theme/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-space text-parchment font-sans antialiased;
+    /* The map owns every gesture inside it; the page itself never scrolls or
+       rubber-bands, which would otherwise fight pinch-zoom on iOS. */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Numerals in the HUD must not jitter as the distance ticks down. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-gold/70 ring-offset-2;
+    --tw-ring-offset-color: var(--space);
+  }
+
+  /* Fraunces ships a `SOFT` and `WONK` axis; a little of both is what gives it the
+     antique-atlas character rather than a generic modern serif. */
+  .font-display {
+    font-variation-settings:
+      'SOFT' 30,
+      'WONK' 1,
+      'opsz' 40;
+  }
+}
+
+@layer components {
+  /* Shared frame for every floating HUD element (§9 Layout). */
+  .hud-panel {
+    @apply bg-panel/80 border border-hairline shadow-hud backdrop-blur-md;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
