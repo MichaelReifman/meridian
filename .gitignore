@@ -19,6 +19,9 @@ public/data/
 .DS_Store
 Thumbs.db
 
+# Claude Code — launch.json is shared project config, settings.local.json is not
+.claude/settings.local.json
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
