@@ -142,6 +142,23 @@ const GRATICULE_STROKE = 'rgb(var(--ink-rgb) / 0.07)';
 const STROKE_TRANSITION = 'stroke 150ms linear';
 
 /**
+ * Stroke widths, compensated for zoom at rest rather than per frame.
+ *
+ * `vector-effect: non-scaling-stroke` keeps a hairline a hairline at any magnification,
+ * but it costs the browser the ability to treat the zoom subtree as a cached raster: the
+ * stroke geometry has to be resolved in device space again on every frame of a pan or a
+ * pinch, across 199 paths. Without it the group is a plain transform, which is the thing
+ * a compositor is good at.
+ *
+ * The compensation instead rides a custom property that is only written when the view
+ * settles — `view` updates on `onMoveEnd` and on the zoom buttons, never mid-gesture. So
+ * during a gesture the strokes scale with the map, which is the cheap path, and the
+ * instant it ends they snap back to the intended hairline. The visible trade is that
+ * lines thicken while you are actively pinching.
+ */
+const strokeAt = (base: number): string => `calc(var(--mrd-sw, 1) * ${base})`;
+
+/**
  * Tailwind's focus ring is a box-shadow, and SVG elements do not paint box-shadows —
  * so the global `:focus-visible` rule leaves 234 keyboard targets with no visible
  * focus at all. An `outline` does render on SVG, and this selector outranks the
@@ -442,6 +459,10 @@ export function WorldMap({
       /* `touch-none` hands every touch gesture to d3-zoom; without it iOS steals the
          pinch for page zoom and the map judders. */
       className="mrd-map relative h-full w-full select-none overflow-hidden bg-paper touch-none"
+      /* The zoom compensation every stroke width multiplies by. Written from `view`,
+         which only changes when a gesture ends or a zoom button is pressed — never
+         per frame — so a pinch stays a pure transform. */
+      style={{ ['--mrd-sw' as string]: String(1 / (view.zoom || 1)) }}
       onPointerDownCapture={handlePointerDown}
     >
       <style>{FOCUS_CSS}</style>
@@ -523,16 +544,17 @@ export function WorldMap({
                 id="mrd-sphere"
                 fill="var(--sea)"
                 stroke="var(--coast)"
+                /* Through `style` rather than the attribute: react-simple-maps types
+                   Sphere's strokeWidth as a bare number, and the compensation is a calc. */
                 strokeWidth={0.75}
-                vectorEffect="non-scaling-stroke"
+                style={{ strokeWidth: strokeAt(0.75) }}
                 pointerEvents="none"
               />
               <Graticule
                 step={[20, 20]}
                 fill="none"
                 stroke={GRATICULE_STROKE}
-                strokeWidth={0.5}
-                vectorEffect="non-scaling-stroke"
+                strokeWidth={strokeAt(0.5)}
                 pointerEvents="none"
               />
 
@@ -570,9 +592,8 @@ export function WorldMap({
                           d={inertPath}
                           fill={INERT_FILL}
                           stroke={INERT_STROKE}
-                          strokeWidth={0.5}
+                          strokeWidth={strokeAt(0.5)}
                           strokeLinejoin="round"
-                          vectorEffect="non-scaling-stroke"
                           pointerEvents="none"
                           aria-hidden="true"
                         />
@@ -630,9 +651,8 @@ export function WorldMap({
                           d={last.svgPath}
                           fill="none"
                           stroke={LAST_GUESS_STROKE}
-                          strokeWidth={2.25}
+                          strokeWidth={strokeAt(2.25)}
                           strokeLinejoin="round"
-                          vectorEffect="non-scaling-stroke"
                           pointerEvents="none"
                         />
                       )}
@@ -695,6 +715,7 @@ interface CountryPathProps {
   enabled: boolean;
   fill: string;
   stroke: string;
+  /** Base width in user units; the component applies the zoom compensation. */
   strokeWidth: number;
   onPointerGuess(countryId: string): void;
   onKeyGuess(event: ReactKeyboardEvent<SVGPathElement>, countryId: string): void;
@@ -726,7 +747,7 @@ const CountryPath = memo(function CountryPath({
   const base: CSSProperties = {
     fill,
     stroke,
-    strokeWidth,
+    strokeWidth: strokeAt(strokeWidth),
     strokeLinejoin: 'round',
     cursor: active ? 'pointer' : 'default',
     transition: STROKE_TRANSITION,
@@ -734,14 +755,13 @@ const CountryPath = memo(function CountryPath({
   /* react-simple-maps applies `hover` on keyboard focus too, so this doubles as the
      focus treatment for the country fill. */
   const lifted: CSSProperties = active
-    ? { ...base, stroke: 'var(--oxblood)', strokeWidth: Math.max(strokeWidth, 1.75) }
+    ? { ...base, stroke: 'var(--oxblood)', strokeWidth: strokeAt(Math.max(strokeWidth, 1.75)) }
     : base;
 
   return (
     <Geography
       geography={geography}
       /* Strokes are hairlines at world zoom and must stay hairlines at 24×. */
-      vectorEffect="non-scaling-stroke"
       tabIndex={active ? 0 : -1}
       role={playable ? 'button' : undefined}
       aria-label={label ?? undefined}
