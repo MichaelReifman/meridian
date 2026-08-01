@@ -15,6 +15,7 @@
 
 import { lazy, useEffect } from 'react';
 
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import { HowToScreen } from '@/screens/HowToScreen';
 import { MenuScreen } from '@/screens/MenuScreen';
 import { PlayScreen } from '@/screens/PlayScreen';
@@ -71,8 +72,20 @@ export function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  if (screen === 'play') return <PlayScreen reveal={GlobeReveal} />;
-  if (screen === 'stats') return <StatsScreen />;
-  if (screen === 'howto') return <HowToScreen />;
-  return <MenuScreen />;
+  /* UpdatePrompt owns service worker registration, so it has to survive every screen
+     change — mounting it per-screen would re-register the worker on each navigation. */
+  return (
+    <>
+      {screen === 'play' ? (
+        <PlayScreen reveal={GlobeReveal} />
+      ) : screen === 'stats' ? (
+        <StatsScreen />
+      ) : screen === 'howto' ? (
+        <HowToScreen />
+      ) : (
+        <MenuScreen />
+      )}
+      <UpdatePrompt />
+    </>
+  );
 }

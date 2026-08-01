@@ -1,0 +1,120 @@
+/**
+ * Service worker lifecycle, surfaced to the player.
+ *
+ * Two moments are worth a word and no more:
+ *
+ *  · the first visit finishes precaching, so the game is genuinely playable offline —
+ *    a claim worth making once, since it is the whole reason the flags are vendored;
+ *  · a new build is waiting, which under 'prompt' registration will not take effect
+ *    until the page reloads.
+ *
+ * The update banner persists rather than auto-dismissing, because dismissing it is a
+ * decision: the waiting worker holds until the player reloads, and silently timing the
+ * offer out would leave them on an old build with no way back to the offer.
+ *
+ * This component owns registration (vite.config sets injectRegister to null), so it
+ * must stay mounted for the life of the app.
+ */
+
+import { useEffect, useState } from 'react';
+import { useRegisterSW } from 'virtual:pwa-register/react';
+import { Download, X } from 'lucide-react';
+
+/**
+ * How often to re-check for a new build while the app stays open.
+ *
+ * The browser only checks on navigation, which for an installed PWA can mean days if
+ * Android keeps the process warm. An hour is generous for a game opened once a day and
+ * costs one conditional request for a 16 KB file.
+ */
+const UPDATE_POLL_MS = 60 * 60 * 1000;
+
+const OFFLINE_NOTICE_MS = 3200;
+
+export function UpdatePrompt(): JSX.Element | null {
+  const {
+    offlineReady: [offlineReady, setOfflineReady],
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+
+      const check = (): void => {
+        // Rejects whenever the network is unavailable, which is the normal state for
+        // this app rather than an exceptional one.
+        void registration.update().catch(() => undefined);
+      };
+
+      const timer = window.setInterval(check, UPDATE_POLL_MS);
+
+      /* Returning to a backgrounded PWA is the moment a check is most likely to find
+         something, and on Android it frequently does not involve a fresh navigation. */
+      const onVisible = (): void => {
+        if (document.visibilityState === 'visible') check();
+      };
+      document.addEventListener('visibilitychange', onVisible);
+
+      /* Registration outlives this component in practice, but tearing the listeners
+         down on unload keeps a hot-reloaded dev session from stacking them up. */
+      window.addEventListener('beforeunload', () => {
+        window.clearInterval(timer);
+        document.removeEventListener('visibilitychange', onVisible);
+      });
+    },
+  });
+
+  const [updating, setUpdating] = useState(false);
+
+  // The offline confirmation is informational, so it behaves like a toast.
+  useEffect(() => {
+    if (!offlineReady) return;
+    const id = window.setTimeout(() => setOfflineReady(false), OFFLINE_NOTICE_MS);
+    return () => window.clearTimeout(id);
+  }, [offlineReady, setOfflineReady]);
+
+  if (!offlineReady && !needRefresh) return null;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      /* Sits above the transient Toast's bottom-centre slot so a "Copied" confirmation
+         from the reveal cannot land underneath this one. */
+      className="pointer-events-none fixed left-1/2 z-50 flex -translate-x-1/2 justify-center px-4"
+      style={{ bottom: 'calc(var(--inset-b) + 4.75rem)' }}
+    >
+      {needRefresh ? (
+        <div className="hud-panel animate-rise-in pointer-events-auto flex max-w-[92vw] items-center gap-3 rounded-2xl py-2 pl-4 pr-2">
+          <span className="text-sm text-parchment">A new version is ready.</span>
+          <button
+            type="button"
+            disabled={updating}
+            onClick={() => {
+              setUpdating(true);
+              // Tells the waiting worker to take over, then reloads. Everything the new
+              // build needs is already precached, so this is effectively instant.
+              void updateServiceWorker(true);
+            }}
+            className="ease-swift inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gold px-3 py-1.5 text-sm font-medium text-space transition-opacity duration-200 hover:opacity-90 disabled:opacity-60"
+          >
+            <Download aria-hidden="true" size={15} strokeWidth={2} />
+            {updating ? 'Updating…' : 'Reload'}
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss update notice"
+            onClick={() => setNeedRefresh(false)}
+            className="ease-swift flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors duration-200 hover:bg-parchment/10 hover:text-parchment"
+          >
+            <X aria-hidden="true" size={16} strokeWidth={1.75} />
+          </button>
+        </div>
+      ) : (
+        <div className="hud-panel animate-rise-in max-w-[80vw] rounded-full px-4 py-2 text-center text-sm text-parchment">
+          Ready to play offline.
+        </div>
+      )}
+    </div>
+  );
+}

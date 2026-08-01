@@ -668,10 +668,13 @@ interface MicroMarkerLayerProps {
  * Tuvalu has no geometry at all at 50m, so without this layer five of them would be
  * literally unplayable.
  *
- * This is the only part of the tree that re-renders while zooming: it subscribes to the
- * zoom transform so each marker can cancel it out and stay a constant size on screen.
- * The markers themselves are memoised, so a zoom frame costs 39 tiny renders while the
- * 241 country paths above are untouched.
+ * Each marker has to cancel out the zoom so it stays a constant size on screen, and the
+ * obvious way to do that — subscribe to the zoom transform and re-render — puts 39 React
+ * components on the hot path of every pan and pinch frame. Instead the counter-scale is
+ * published once per frame as a CSS custom property on this group, and the markers below
+ * consume it through `transform: scale(var(--mrd-inv))`. Style resolution handles the
+ * rest, so a zoom frame costs one attribute write rather than 39 reconciliations, and
+ * React never renders during a gesture at all.
  */
 function MicroMarkerLayer({
   fills,
@@ -682,10 +685,23 @@ function MicroMarkerLayer({
   onKeyGuess,
 }: MicroMarkerLayerProps) {
   const { k } = useZoomPanContext();
-  const invScale = Math.round((1 / (k || 1)) * 10000) / 10000;
+  const groupRef = useRef<SVGGElement>(null);
+
+  /* Written straight to the DOM rather than rendered. `k` changes on every frame of a
+     gesture, so returning it through JSX would re-render this subtree 60 times a second;
+     an effect that only touches one custom property costs nothing and leaves the React
+     tree completely still while the map moves. */
+  useEffect(() => {
+    groupRef.current?.style.setProperty('--mrd-inv', String(1 / (k || 1)));
+  }, [k]);
 
   return (
-    <g className="mrd-micro">
+    <g
+      ref={groupRef}
+      className="mrd-micro"
+      // Seeds the property for the first paint, before the effect above has run.
+      style={{ ['--mrd-inv' as string]: String(1 / (k || 1)) }}
+    >
       {MICRO_COUNTRIES.map((country) => {
         const guessed = guessedIds.has(country.id);
         const isLast = country.id === lastGuessId;
@@ -693,7 +709,6 @@ function MicroMarkerLayer({
           <MicroMarker
             key={country.id}
             country={country}
-            invScale={invScale}
             enabled={enabled}
             fill={fills.get(country.id) ?? TERRAIN_FILL}
             ring={isLast ? LAST_GUESS_STROKE : guessed ? GUESSED_STROKE : MICRO_RING}
@@ -709,8 +724,6 @@ function MicroMarkerLayer({
 
 interface MicroMarkerProps {
   country: Country;
-  /** 1 / zoom. Cancels the ZoomableGroup transform so on-screen size never changes. */
-  invScale: number;
   enabled: boolean;
   fill: string;
   ring: string;
@@ -724,7 +737,6 @@ const MICRO_HIT_RADIUS = 14;
 
 const MicroMarker = memo(function MicroMarker({
   country,
-  invScale,
   enabled,
   fill,
   ring,
@@ -753,8 +765,10 @@ const MicroMarker = memo(function MicroMarker({
       style={{ default: base, hover: lifted, pressed: lifted }}
     >
       {/* The viewBox is 1:1 with CSS pixels, so scaling by 1/zoom pins both the hit area
-          and the ring to a fixed on-screen size at every zoom level. */}
-      <g transform={`scale(${invScale})`}>
+          and the ring to a fixed on-screen size at every zoom level. The factor arrives
+          as a custom property set on the layer above, so this element is never
+          re-rendered by a gesture — the style engine re-resolves it instead. */}
+      <g style={{ transform: 'scale(var(--mrd-inv, 1))' }}>
         <circle r={MICRO_HIT_RADIUS} fill="transparent" style={{ pointerEvents: 'all' }} />
         <circle r={5} fill={fill} stroke="currentColor" strokeWidth={1.25} />
       </g>

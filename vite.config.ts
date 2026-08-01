@@ -17,7 +17,24 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      /**
+       * 'prompt', not 'autoUpdate', and the reason is a correctness one rather than a
+       * matter of taste.
+       *
+       * Under autoUpdate the new worker calls skipWaiting and takes over mid-session,
+       * and Workbox then evicts precache entries that are no longer in the manifest.
+       * The globe reveal is a lazy chunk, so a deploy landing while someone is midway
+       * through a round would delete globe-<oldhash>.js from the cache while the page
+       * still holds a reference to it — and the server only has the new hash. Solving
+       * that round would fail to load the reveal.
+       *
+       * Waiting instead of activating keeps the old precache intact for the whole
+       * session, and the player chooses the moment to reload.
+       */
+      registerType: 'prompt',
+      // Registration is owned by src/components/UpdatePrompt.tsx, so the plugin must
+      // not also inject its own script — that would register the worker twice.
+      injectRegister: null,
       includeAssets: ['icons/favicon.svg', 'icons/apple-touch-icon.png'],
       workbox: {
         // Everything the game needs is precached: there is no runtime network
