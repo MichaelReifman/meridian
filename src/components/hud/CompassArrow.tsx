@@ -16,6 +16,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { toDisplayDistance, UNIT_KEY, UNIT_NAME_KEY, type DistanceUnit } from '@/lib/units';
+import { useDistanceUnit } from '@/store/prefsStore';
 import { useTranslator, type Translator } from '@/i18n';
 
 /** Eight points of the rose; the four cardinals are engraved longer and in ink. */
@@ -28,9 +30,13 @@ const TICK_DEGREES = [0, 45, 90, 135, 180, 225, 270, 315];
  * inside an Arabic readout. The rounding rule is reproduced here — coarse above 100 km,
  * one decimal below it — and the grouping and digit shapes are left to Intl.
  */
-function formatKm(t: Translator, km: number): string {
-  const digits = km >= 100 ? 0 : 1;
-  const rounded = digits === 0 ? Math.round(km) : Math.round(km * 10) / 10;
+function formatDistance(t: Translator, km: number, unit: DistanceUnit): string {
+  /* Rounded on the CONVERTED value, never on the kilometres. Deciding precision from
+     km would switch to whole numbers at 100 km — about 62 mi — so a reader in miles
+     would see one decimal place vanish at an arbitrary number. */
+  const value = toDisplayDistance(km, unit);
+  const digits = value >= 100 ? 0 : 1;
+  const rounded = digits === 0 ? Math.round(value) : Math.round(value * 10) / 10;
   return t.num(rounded, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
@@ -78,8 +84,11 @@ export function CompassArrow({
     setAngle(unwrapped.current);
   }, [bearingDeg]);
 
-  const km = formatKm(t, distanceKm);
-  const label = t('play.a11y.bearing', { distance: km, compass });
+  const unit = useDistanceUnit();
+  const distance = formatDistance(t, distanceKm, unit);
+  /* The accessible name names the unit in words, so it cannot be read as kilometres
+     when the reader has chosen miles. */
+  const label = t('play.a11y.bearing', { distance, compass, unit: t(UNIT_NAME_KEY[unit]) });
 
   /* Safe-area insets are physical — a notch stays on the side of the device it is on,
      whichever way the type runs — so the logical edge has to pick the matching one. */
@@ -158,8 +167,8 @@ export function CompassArrow({
 
         <div className="border-s border-rule-soft ps-2.5 leading-tight">
           <p className="font-mono tabular text-lg text-ink">
-            {km}
-            <span className="label ms-1">{t('play.km')}</span>
+            {distance}
+            <span className="label ms-1">{t(UNIT_KEY[unit])}</span>
           </p>
           {/* The compass point arrives as a Latin abbreviation the data never localises,
               so it is isolated from the surrounding run. */}

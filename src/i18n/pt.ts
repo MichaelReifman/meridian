@@ -73,7 +73,7 @@ export const PT: Dictionary = {
   'play.search.guessed': 'Tentado',
   'play.a11y.guessTrail': 'Tentativas efetuadas, da mais recente para a mais antiga',
   'play.a11y.alreadyGuessed': '{country}, já tentado',
-  'play.a11y.bearing': '{distance} quilómetros, rumo {compass}',
+  'play.a11y.bearing': '{distance} {unit}, rumo {compass}',
   'play.title': 'Meridian — {mode} {kind}',
 
   /* --- reveal ------------------------------------------------------------ */

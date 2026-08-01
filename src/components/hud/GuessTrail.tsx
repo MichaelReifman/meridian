@@ -10,6 +10,8 @@
  * the fact just because a later guess narrowed the field.
  */
 
+import { toDisplayDistance, UNIT_KEY, type DistanceUnit } from '@/lib/units';
+import { useDistanceUnit } from '@/store/prefsStore';
 import { useTranslator, type Translator } from '@/i18n';
 import { guessProximityPct } from '@/lib/geo';
 import type { Country, Guess } from '@/types/game';
@@ -20,9 +22,13 @@ import type { Country, Guess } from '@/types/game';
  * `lib/geo.formatKm` is pinned to en-US and would print Latin digits inside an Arabic
  * tally. Its rounding rule is reproduced here; grouping and digit shapes go to Intl.
  */
-function formatKm(t: Translator, km: number): string {
-  const digits = km >= 100 ? 0 : 1;
-  const rounded = digits === 0 ? Math.round(km) : Math.round(km * 10) / 10;
+function formatDistance(t: Translator, km: number, unit: DistanceUnit): string {
+  /* Rounded on the CONVERTED value, never on the kilometres. Deciding precision from
+     km would switch to whole numbers at 100 km — about 62 mi — so a reader in miles
+     would see one decimal place vanish at an arbitrary number. */
+  const value = toDisplayDistance(km, unit);
+  const digits = value >= 100 ? 0 : 1;
+  const rounded = digits === 0 ? Math.round(value) : Math.round(value * 10) / 10;
   return t.num(rounded, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
@@ -33,6 +39,7 @@ export function GuessTrail({
   guesses: readonly Guess[];
   byId: Map<string, Country>;
 }) {
+  const unit = useDistanceUnit();
   const t = useTranslator();
 
   if (guesses.length === 0) return null;
@@ -79,8 +86,8 @@ export function GuessTrail({
                   {name}
                 </span>
                 <span className="font-mono tabular shrink-0 text-xs text-graphite">
-                  {formatKm(t, guess.distanceKm)}
-                  <span className="label ms-0.5">{t('play.km')}</span>
+                  {formatDistance(t, guess.distanceKm, unit)}
+                  <span className="label ms-0.5">{t(UNIT_KEY[unit])}</span>
                 </span>
                 {/* Formatted as a percentage rather than printed with a literal `%`: the
                     sign, its side and the digit shapes all change with the language. */}

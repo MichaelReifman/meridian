@@ -9,6 +9,7 @@
 
 import { COUNTRIES } from '@/data/countries.generated';
 import { flagUrl } from '@/lib/paths';
+import { matchesRegion, type RegionFilter } from '@/store/prefsStore';
 import type { Country, GameMode, Puzzle } from '@/types/game';
 
 /* ─── Local calendar ─────────────────────────────────────────────────────── */
@@ -146,13 +147,24 @@ export function practicePuzzle(
   mode: GameMode,
   seq: number,
   exclude: readonly string[] = [],
+  region: RegionFilter = 'all',
 ): Puzzle {
+  /**
+   * The region filter narrows practice only. `dailyPuzzle` deliberately takes no such
+   * parameter: the daily is the same puzzle for everyone, and a filtered daily would
+   * quietly break the premise that two players can compare the same result.
+   */
+  const inRegion = COUNTRIES.filter((c) => matchesRegion(c, region));
   const blocked = new Set(exclude);
-  const remaining = COUNTRIES.filter((c) => !blocked.has(c.id));
-  // Degrade rather than throw: a marathon session that has seen all 195 countries
-  // should keep dealing puzzles, just without the no-repeat guarantee.
-  const pool: readonly Country[] = remaining.length > 0 ? remaining : COUNTRIES;
-  const target = pool[Math.floor(Math.random() * pool.length)];
+  const remaining = inRegion.filter((c) => !blocked.has(c.id));
+  /* Degrade rather than throw: a session that has seen everything should keep dealing,
+     just without the no-repeat guarantee. The fallback is the REGION's pool rather than
+     the whole roster — Oceania is fourteen countries, so this branch is reached in a
+     couple of minutes, and falling back to all 195 there would silently cancel the
+     filter the player just set. */
+  const pool: readonly Country[] = remaining.length > 0 ? remaining : inRegion;
+  const safe: readonly Country[] = pool.length > 0 ? pool : COUNTRIES;
+  const target = safe[Math.floor(Math.random() * safe.length)];
   return { mode, kind: 'practice', dateKey: localDateKey(), targetId: target.id, seq };
 }
 

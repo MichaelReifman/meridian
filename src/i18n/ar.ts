@@ -80,7 +80,7 @@ export const AR: Dictionary = {
   'play.search.guessed': 'مُخمَّنة',
   'play.a11y.guessTrail': 'التخمينات حتى الآن، الأحدث أولًا',
   'play.a11y.alreadyGuessed': '{country}، سبق تخمينها',
-  'play.a11y.bearing': '{distance} كيلومتر، الاتجاه {compass}',
+  'play.a11y.bearing': '{distance} {unit}، الاتجاه {compass}',
   'play.title': 'Meridian — {kind}: {mode}',
 
   /* --- reveal ------------------------------------------------------------ */

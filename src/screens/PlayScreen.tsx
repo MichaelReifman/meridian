@@ -45,6 +45,7 @@ import {
   selectTarget,
   useGameStore,
 } from '@/store/gameStore';
+import { currentPracticeRegion } from '@/store/prefsStore';
 import { useUiStore } from '@/store/uiStore';
 import type { Country, GameMode } from '@/types/game';
 
@@ -103,7 +104,7 @@ export function PlayScreen({ reveal: Reveal }: { reveal: RevealComponent }): JSX
 
   useEffect(() => {
     const puzzle =
-      kind === 'daily' ? dailyPuzzle(mode) : practicePuzzle(mode, seq, seenRef.current);
+      kind === 'daily' ? dailyPuzzle(mode) : practicePuzzle(mode, seq, seenRef.current, currentPracticeRegion());
     seenRef.current = [...seenRef.current, puzzle.targetId];
     setReplay(false);
     /* A daily that has already been finished today needs no special case here: the store

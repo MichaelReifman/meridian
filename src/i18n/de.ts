@@ -78,7 +78,7 @@ export const DE: Dictionary = {
   'play.search.guessed': 'Geraten',
   'play.a11y.guessTrail': 'Bisherige Versuche, neueste zuerst',
   'play.a11y.alreadyGuessed': '{country}, bereits geraten',
-  'play.a11y.bearing': '{distance} Kilometer, Peilung {compass}',
+  'play.a11y.bearing': '{distance} {unit}, Peilung {compass}',
   'play.title': 'Meridian — {kind}: {mode}',
 
   /* --- reveal ------------------------------------------------------------ */

@@ -79,7 +79,7 @@ export const EN = {
   'play.search.guessed': 'Guessed',
   'play.a11y.guessTrail': 'Guesses so far, newest first',
   'play.a11y.alreadyGuessed': '{country}, already guessed',
-  'play.a11y.bearing': '{distance} kilometres, bearing {compass}',
+  'play.a11y.bearing': '{distance} {unit}, bearing {compass}',
   'play.title': 'Meridian — {mode} {kind}',
 
   /* --- reveal ------------------------------------------------------------ */
