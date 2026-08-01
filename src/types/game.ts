@@ -32,7 +32,7 @@ export type RoundStatus =
 export interface Country {
   /** ISO 3166-1 numeric, zero-padded. Joins to the topology's feature ids. */
   readonly id: string;
-  /** ISO 3166-1 alpha-2, lowercase. Names the flag asset: `/flags/{cca2}.svg`. */
+  /** ISO 3166-1 alpha-2, lowercase. Names the flag asset; resolve it with `flagUrl`. */
   readonly cca2: string;
   /** ISO 3166-1 alpha-3, uppercase. Used in share text and as a stable stats key. */
   readonly cca3: string;

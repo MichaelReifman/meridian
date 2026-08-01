@@ -4,7 +4,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
 // https://vite.dev/config/
+/**
+ * GitHub Pages serves this project from https://<user>.github.io/meridian/, so every
+ * URL the app emits has to carry that prefix. Overridable for a root-domain host
+ * (Vercel, a custom domain) with `BASE_PATH=/ npm run build` — anything fetched at
+ * runtime goes through src/lib/paths.ts, which reads this back from import.meta.env.
+ */
+const BASE = process.env.BASE_PATH ?? '/meridian/';
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     VitePWA({
@@ -32,8 +41,10 @@ export default defineConfig({
         background_color: '#0B0E1A',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/',
-        scope: '/',
+        // Must match the deployment base, or Android installs the app and then opens
+        // it at the domain root — a 404 inside a standalone window with no address bar.
+        start_url: BASE,
+        scope: BASE,
         categories: ['games', 'education'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

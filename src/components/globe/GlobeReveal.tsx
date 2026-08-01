@@ -44,6 +44,7 @@ import type { FeatureCollection, GeometryObject, Position } from 'geojson';
 import { ArrowRight } from 'lucide-react';
 import { EARTH_RADIUS_KM, clamp01, distanceKm, lonLatToVec3, slerpLonLat } from '@/lib/geo';
 import { parseCssColor, toHexColor } from '@/lib/ramp';
+import { TOPOLOGY_URL, flagUrl } from '@/lib/paths';
 import type { Country, LonLat } from '@/types/game';
 import { RevealFallback } from './RevealFallback';
 
@@ -102,8 +103,6 @@ const IDLE_SPEED = 0.42;
 const START_LON_LEAD = 64;
 const START_LAT_FLATTEN = 0.35;
 const START_TILT_DEG = 14;
-
-const TOPOLOGY_URL = '/data/world-50m.json';
 
 const NEBULA =
   'radial-gradient(60rem 42rem at 14% 8%, rgba(123, 108, 246, 0.20), transparent 62%),' +
@@ -822,7 +821,7 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
           <div className="hud-panel animate-rise-in w-full max-w-lg rounded-2xl p-5 sm:p-6">
             <div className="flex items-center gap-4">
               <img
-                src={`/flags/${target.cca2}.webp`}
+                src={flagUrl(target.cca2)}
                 alt=""
                 onError={hideBrokenFlag}
                 decoding="async"

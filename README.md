@@ -115,7 +115,21 @@ Streak arithmetic uses local calendar dates rather than millisecond subtraction,
 
 ## Deploy
 
-Static. `npm run build`, then deploy `dist/` to Vercel or GitHub Pages. `vercel.json` sets SPA rewrites and immutable caching for hashed assets. There is no backend and nothing to configure.
+Static, no backend, nothing to configure. Every push to `master` triggers `.github/workflows/deploy.yml`, which regenerates the country data, flags and icons from source, runs the tests, builds, verifies the precache, and publishes to GitHub Pages.
+
+**Live:** https://michaelreifman.github.io/meridian/
+
+Because Pages serves from a subdirectory, the build sets `base: '/meridian/'` and everything fetched at runtime resolves through [`src/lib/paths.ts`](src/lib/paths.ts). To deploy to a root domain instead:
+
+```bash
+BASE_PATH=/ npm run build
+```
+
+### Installing on Android
+
+Open the live URL in Chrome, then **⋮ → Add to Home screen** (Chrome usually offers "Install app" on its own). It installs as a standalone app with its own icon, runs without browser chrome, and works fully offline afterwards — the service worker precaches all 195 flags and the boundary topology on first load, so there is no runtime network dependency at all.
+
+Installation requires HTTPS, which Pages provides. A local dev server over your LAN (`http://192.168.x.x`) is not a secure context, so Chrome will not offer to install it.
 
 ## Non-goals for v1
 

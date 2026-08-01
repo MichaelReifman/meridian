@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { flagUrl } from '@/lib/paths';
 import type { GlobeRevealProps } from './GlobeReveal';
 
 /**
@@ -123,7 +124,7 @@ export function RevealFallback({
       <div ref={cardRef} className="hud-panel animate-rise-in relative w-full max-w-md rounded-2xl p-6 sm:p-8">
         <div className="flex items-start gap-4">
           <img
-            src={`/flags/${target.cca2}.webp`}
+            src={flagUrl(target.cca2)}
             alt=""
             onError={hideBrokenFlag}
             decoding="async"

@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+# The generated country data, flags and icons are all gitignored, so CI rebuilds them
+# from source on every run. That makes the pipeline the single source of truth for what
+# ships — there is no way for a stale committed artifact to reach production.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; a half-published precache manifest would leave installed
+# PWAs fetching assets that no longer exist.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build country data and boundaries
+        run: npm run data
+
+      - name: Vendor flags
+        run: npm run flags
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Catches the failure mode that a green build cannot: an asset the app will ask
+      # for at runtime that never made it into the service worker's precache.
+      - name: Verify assets and precache
+        run: npm run check
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

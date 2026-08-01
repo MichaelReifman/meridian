@@ -8,6 +8,7 @@
  */
 
 import { COUNTRIES } from '@/data/countries.generated';
+import { flagUrl } from '@/lib/paths';
 import type { Country, GameMode, Puzzle } from '@/types/game';
 
 /* ─── Local calendar ─────────────────────────────────────────────────────── */
@@ -192,6 +193,6 @@ export function clueFor(puzzle: Puzzle): { kind: GameMode; text: string; flagSrc
       // `text` doubles as the image's alt text and the screen-reader clue. A flag
       // with no accessible name makes the mode unplayable without sight, and the
       // country's name is not a spoiler here — *locating* it is the entire puzzle.
-      return { kind: 'flag', text: country.name, flagSrc: `/flags/${country.cca2}.webp` };
+      return { kind: 'flag', text: country.name, flagSrc: flagUrl(country.cca2) };
   }
 }

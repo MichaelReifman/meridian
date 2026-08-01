@@ -47,9 +47,8 @@ import type { Country } from '@/types/game';
 import type { DistanceRing } from '@/lib/geo';
 import { quantizeBands, ringConsistency, ringTolerance } from '@/lib/geo';
 import { rampColor } from '@/lib/ramp';
+import { TOPOLOGY_URL as GEO_URL } from '@/lib/paths';
 import { toCountryId, useCountryLookup } from '@/components/map/useCountryLookup';
-
-const GEO_URL = '/data/world-50m.json';
 
 const MIN_ZOOM = 1;
 /** Generous on purpose: Monaco is 12 km² and needs real magnification to be legible. */
