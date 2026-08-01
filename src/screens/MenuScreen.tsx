@@ -29,12 +29,54 @@ import { REGION_FILTERS, REGION_KEY, isRegionFilter, usePrefsStore } from '@/sto
 import { useUiStore } from '@/store/uiStore';
 import { GAME_MODES, type GameMode, type PuzzleKind } from '@/types/game';
 
-const MODE_META: Readonly<
-  Record<GameMode, { numeral: string; title: TranslationKey; blurb: TranslationKey }>
-> = {
-  country: { numeral: 'I', title: 'menu.mode.country', blurb: 'menu.blurb.country' },
-  capital: { numeral: 'II', title: 'menu.mode.capital', blurb: 'menu.blurb.capital' },
-  flag: { numeral: 'III', title: 'menu.mode.flag', blurb: 'menu.blurb.flag' },
+/**
+ * Each mode carries its own pigment.
+ *
+ * The three colours are the ones a hand-colourist actually kept on the bench —
+ * verdigris, oxblood, indigo — used here at full strength rather than as the pale
+ * washes the map wants. They are not decoration: they give the three entries an
+ * identity you recognise before reading, which is what turns an index into a choice.
+ * Held as full class names rather than assembled from a fragment, because Tailwind
+ * scans source text and would never emit a class it cannot see written out.
+ */
+interface ModeMeta {
+  readonly numeral: string;
+  readonly title: TranslationKey;
+  readonly blurb: TranslationKey;
+  readonly text: string;
+  readonly border: string;
+  readonly tint: string;
+  readonly action: string;
+}
+
+const MODE_META: Readonly<Record<GameMode, ModeMeta>> = {
+  country: {
+    numeral: 'I',
+    title: 'menu.mode.country',
+    blurb: 'menu.blurb.country',
+    text: 'text-mode-country',
+    border: 'border-mode-country',
+    tint: 'bg-mode-country/5',
+    action: 'border-mode-country/60 text-mode-country hover:border-mode-country',
+  },
+  capital: {
+    numeral: 'II',
+    title: 'menu.mode.capital',
+    blurb: 'menu.blurb.capital',
+    text: 'text-mode-capital',
+    border: 'border-mode-capital',
+    tint: 'bg-mode-capital/5',
+    action: 'border-mode-capital/60 text-mode-capital hover:border-mode-capital',
+  },
+  flag: {
+    numeral: 'III',
+    title: 'menu.mode.flag',
+    blurb: 'menu.blurb.flag',
+    text: 'text-mode-flag',
+    border: 'border-mode-flag',
+    tint: 'bg-mode-flag/5',
+    action: 'border-mode-flag/60 text-mode-flag hover:border-mode-flag',
+  },
 };
 
 /**
@@ -189,14 +231,20 @@ function ModeEntry({
   const name = t(meta.title);
 
   return (
-    <section aria-labelledby={`mode-${mode}`} className="py-5">
+    <section
+      aria-labelledby={`mode-${mode}`}
+      /* A band of the mode's own colour down the start margin, and the faintest tint
+         behind the entry. Together they do what a rule alone could not: give each mode
+         a face, without adding a single element that is not already carrying meaning. */
+      className={`ease-swift border-s-[3px] py-5 ps-4 transition-colors duration-200 ${meta.border} ${meta.tint}`}
+    >
       <div className="flex items-baseline gap-4">
         {/* Fixed width so all three numerals align into a column, as an index would. The
             column follows the flex direction to the start margin; the numeral itself is
             Latin in every language and never mirrors. */}
         <span
           aria-hidden="true"
-          className="w-7 shrink-0 font-display text-sm uppercase tracking-widest text-brass"
+          className={`w-7 shrink-0 font-display text-base uppercase tracking-widest ${meta.text}`}
         >
           {meta.numeral}
         </span>
@@ -235,6 +283,7 @@ function ModeEntry({
         <EntryAction
           onClick={() => onStart(mode, 'daily')}
           emphasis={!done}
+          accent={meta.action}
           label={
             done
               ? t('menu.a11y.reviewDaily', { mode: name })
@@ -346,11 +395,14 @@ function EntryAction({
   onClick,
   label,
   emphasis = false,
+  accent,
   children,
 }: {
   onClick(): void;
   label: string;
   emphasis?: boolean;
+  /** The mode's own pigment classes, applied only to the emphasised action. */
+  accent?: string;
   children: ReactNode;
 }) {
   return (
@@ -358,9 +410,11 @@ function EntryAction({
       type="button"
       onClick={onClick}
       aria-label={label}
+      /* Only the primary action takes the mode's colour. Giving it to both would make
+         the row read as two equal choices, when the daily is the one being offered. */
       className={`ease-swift -my-2 border-b py-2 text-sm transition-colors duration-150 ${
         emphasis
-          ? 'border-oxblood/60 font-medium text-oxblood hover:border-oxblood'
+          ? `font-medium ${accent ?? 'border-oxblood/60 text-oxblood'}`
           : 'border-ink/25 text-ink hover:border-ink/70'
       }`}
     >

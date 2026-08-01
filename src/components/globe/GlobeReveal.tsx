@@ -332,8 +332,21 @@ function buildCoastPositions(fc: FeatureCollection<GeometryObject, CoastProps>):
  * default `flipY` puts the top row of the image at the top of the globe. So no offset or
  * flip is needed — the canvas is drawn in plate carrée and lands where it should.
  */
-const TEXTURE_W = 2048;
-const TEXTURE_H = 1024;
+/**
+ * Halved on small screens.
+ *
+ * 2048×1024 is two megapixels to rasterise and then upload as a texture, and a phone
+ * pays for that twice — once painting 241 polygons into the canvas on the main thread,
+ * once moving it to the GPU — for a globe it will never draw wider than about 360 CSS
+ * pixels. At that size 1024×512 is still well above one texel per pixel, so it costs a
+ * quarter of the work and nothing visible.
+ */
+const SMALL_SCREEN_PX = 520;
+const isSmallScreen = (): boolean =>
+  typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) <= SMALL_SCREEN_PX;
+
+const TEXTURE_W = isSmallScreen() ? 1024 : 2048;
+const TEXTURE_H = TEXTURE_W / 2;
 
 /** Continent washes, deepened for the globe: this reads as the Earth, not as a chart. */
 const GLOBE_WASH: Readonly<Record<string, string>> = {

@@ -67,6 +67,19 @@
      ocean is the same pigment at full strength instead of diluted. */
   --ocean-rgb: 74 110 136; /* #4A6E88 */
 
+  /**
+   * One pigment per mode, for the title page.
+   *
+   * Verdigris, oxblood and indigo are the three colours a hand-colourist actually kept
+   * on the bench, and using them at full strength — rather than as the pale washes the
+   * map wants — is what stops the menu reading as a monochrome index. They are strong
+   * enough to carry text (5.3:1, 8.0:1 and 6.9:1 on paper) and far enough apart in hue
+   * to tell three entries apart at a glance, which is the job they are doing.
+   */
+  --mode-country-rgb: 47 107 94; /* #2F6B5E verdigris */
+  --mode-capital-rgb: 123 45 38; /* #7B2D26 oxblood */
+  --mode-flag-rgb: 51 80 126; /* #33507E indigo */
+
   /* --- composed ----------------------------------------------------------- */
   --paper: rgb(var(--paper-rgb));
   --leaf: rgb(var(--leaf-rgb));
@@ -85,6 +98,9 @@
   --wash-asia: rgb(var(--wash-asia-rgb));
   --wash-europe: rgb(var(--wash-europe-rgb));
   --wash-oceania: rgb(var(--wash-oceania-rgb));
+  --mode-country: rgb(var(--mode-country-rgb));
+  --mode-capital: rgb(var(--mode-capital-rgb));
+  --mode-flag: rgb(var(--mode-flag-rgb));
 
   /* Hairlines carry their own alpha, so they are never used with an opacity modifier.
      Two weights: `rule` for structure, `rule-soft` for grouping without division. */

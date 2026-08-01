@@ -127,7 +127,19 @@ const MICRO_RING = 'rgb(var(--ink-rgb) / 0.5)';
    paper, and it must never read as a border. */
 const GRATICULE_STROKE = 'rgb(var(--ink-rgb) / 0.07)';
 
-const FILL_TRANSITION = 'fill 200ms cubic-bezier(0.22, 1, 0.36, 1), stroke 150ms linear';
+/**
+ * No fill transition, deliberately.
+ *
+ * Every guess re-tints all 195 playable countries at once. Animating that meant 241
+ * simultaneous property animations for 200 ms — measured at 7.5 ms through two frames on
+ * a desktop, which is several dropped frames on a phone, and it landed on exactly the
+ * interaction the game is made of. Snapping is also the better read: a guess is a
+ * discrete event and the map answering it instantly feels sharper than a fade.
+ *
+ * Only the stroke still eases, because that is at most a handful of countries changing
+ * (the newest guess and the one it displaces) rather than the whole roster.
+ */
+const STROKE_TRANSITION = 'stroke 150ms linear';
 
 /**
  * Tailwind's focus ring is a box-shadow, and SVG elements do not paint box-shadows —
@@ -531,8 +543,41 @@ export function WorldMap({
                     ? features.find((g) => toCountryId(g.id) === lastGuessId)
                     : undefined;
 
+                  /**
+                   * Every inert feature drawn as one path.
+                   *
+                   * The 46 territories the game never plays are identical in fill and
+                   * stroke, never react to anything, and never change for the life of the
+                   * round — so as separate elements they were 46 nodes of pure overhead
+                   * in a subtree that gets re-rasterised on every frame of a pan. SVG
+                   * path data concatenates cleanly (each subpath begins with its own
+                   * `M`), so they collapse into a single node with no visual difference
+                   * at all. The saving is worth most on the device that needs it.
+                   */
+                  const inertPath = features
+                    .filter((g) => {
+                      const name = g.properties?.name ?? '';
+                      return !isPlayable(g.id) || INERT_NAMES.has(name);
+                    })
+                    .map((g) => g.svgPath)
+                    .filter(Boolean)
+                    .join(' ');
+
                   return (
                     <>
+                      {inertPath && (
+                        <path
+                          d={inertPath}
+                          fill={INERT_FILL}
+                          stroke={INERT_STROKE}
+                          strokeWidth={0.5}
+                          strokeLinejoin="round"
+                          vectorEffect="non-scaling-stroke"
+                          pointerEvents="none"
+                          aria-hidden="true"
+                        />
+                      )}
+
                       {features.map((geography) => {
                         const id = toCountryId(geography.id);
                         const name = geography.properties?.name ?? '';
@@ -543,22 +588,8 @@ export function WorldMap({
                             ? byId.get(id)
                             : undefined;
 
-                        if (!country) {
-                          return (
-                            <CountryPath
-                              key={geography.rsmKey}
-                              geography={geography}
-                              countryId=""
-                              label={null}
-                              enabled={false}
-                              fill={INERT_FILL}
-                              stroke={INERT_STROKE}
-                              strokeWidth={0.5}
-                              onPointerGuess={handlePointerGuess}
-                              onKeyGuess={handleKeyGuess}
-                            />
-                          );
-                        }
+                        // Already drawn, all of them at once, by the merged path above.
+                        if (!country) return null;
 
                         const guessed = guessedIds.has(country.id);
                         const isLast = country.id === lastGuessId;
@@ -698,7 +729,7 @@ const CountryPath = memo(function CountryPath({
     strokeWidth,
     strokeLinejoin: 'round',
     cursor: active ? 'pointer' : 'default',
-    transition: FILL_TRANSITION,
+    transition: STROKE_TRANSITION,
   };
   /* react-simple-maps applies `hover` on keyboard focus too, so this doubles as the
      focus treatment for the country fill. */

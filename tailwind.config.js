@@ -26,6 +26,10 @@ export default {
         coast: 'rgb(var(--coast-rgb) / <alpha-value>)',
         ice: 'rgb(var(--ice-rgb) / <alpha-value>)',
         ocean: 'rgb(var(--ocean-rgb) / <alpha-value>)',
+        // One pigment per mode, for the title page. See tokens.css.
+        'mode-country': 'rgb(var(--mode-country-rgb) / <alpha-value>)',
+        'mode-capital': 'rgb(var(--mode-capital-rgb) / <alpha-value>)',
+        'mode-flag': 'rgb(var(--mode-flag-rgb) / <alpha-value>)',
         // Translucent by definition — they carry their own alpha, so no placeholder.
         rule: 'var(--rule)',
         'rule-soft': 'var(--rule-soft)',
