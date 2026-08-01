@@ -93,8 +93,21 @@ const TRAIL_START = 0.3;
 const TRAIL_SECONDS = 1.45;
 const PIN_START = 1.5;
 const PIN_SECONDS = 0.6;
-const CAM_START_Z = 4.6;
-const CAM_END_Z = 2.35;
+/**
+ * Camera distances, in globe radii.
+ *
+ * These are what decide whether the reveal reads as a plate or as a close-up. At a 38°
+ * field of view the sphere subtends asin(1/z); ending at 2.35 made that 25° against a
+ * 19° half-frame, so the globe overflowed the viewport by half again and its limb was
+ * cropped away entirely — the one line that tells the eye it is looking at a sphere at
+ * all. Ending at 4.9 puts the silhouette at about 62% of frame height, which leaves a
+ * clear margin of paper on every side and lets the brass graticule wrap a visible edge.
+ *
+ * The wider start keeps the fly-in proportional: the same ratio of travel as before, so
+ * the choreography timings below did not need retuning.
+ */
+const CAM_START_Z = 8.2;
+const CAM_END_Z = 4.9;
 /** ±2.6° of post-arrival wander: enough to read as alive, not enough to lose the pin. */
 const IDLE_AMPLITUDE = 0.045;
 const IDLE_SPEED = 0.42;
@@ -766,6 +779,21 @@ function GlobeStage({ target, guessPath, solved, guessCount, onDone, children }:
         entered ? 'opacity-100' : 'opacity-0'
       }`}
     >
+      {/* The plate mark. A hairline rule inset from the page edge is what turns a
+          full-bleed render into something printed *on* the sheet — the same device the
+          icon and the reveal card use, at page scale. Purely decorative, and it sits
+          above the canvas so the globe appears to be struck inside it. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute z-10 border border-rule"
+        style={{
+          top: 'calc(var(--inset-t) + 0.75rem)',
+          right: 'calc(var(--inset-r) + 0.75rem)',
+          bottom: 'calc(var(--inset-b) + 0.75rem)',
+          left: 'calc(var(--inset-l) + 0.75rem)',
+        }}
+      />
+
       <div aria-hidden="true" className="absolute inset-0">
         <Canvas
           camera={{ position: [0, 0, CAM_START_Z], fov: 38, near: 0.1, far: 120 }}
